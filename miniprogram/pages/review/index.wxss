@@ -1,0 +1,65 @@
+.review-hero {
+  padding: 36rpx 34rpx;
+  border-radius: 34rpx;
+  color: #FFFFFF;
+  background: linear-gradient(140deg, #FF9B7A, #E6704A);
+  box-shadow: 0 18rpx 42rpx rgba(230, 112, 74, 0.22);
+}
+
+.review-hero__eyebrow {
+  font-size: 24rpx;
+  opacity: 0.84;
+}
+
+.review-hero__title {
+  margin-top: 10rpx;
+  font-size: 42rpx;
+  font-weight: 720;
+}
+
+.review-hero__text {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  opacity: 0.9;
+}
+
+.preview-list {
+  margin-top: 24rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.preview-card {
+  min-height: 190rpx;
+  padding: 26rpx 20rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.preview-card__word {
+  font-size: 62rpx;
+  font-weight: 680;
+  line-height: 1.2;
+}
+
+.preview-card__meta {
+  margin-top: 14rpx;
+  color: var(--color-text-secondary);
+  font-size: 22rpx;
+}
+
+.review-empty__button {
+  width: 280rpx;
+  margin: 30rpx auto 0;
+}
+
+.review-loading {
+  margin-top: 24rpx;
+  padding: 56rpx;
+  color: var(--color-text-secondary);
+  text-align: center;
+}

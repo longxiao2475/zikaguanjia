@@ -1,0 +1,24 @@
+<view class="page-shell review-page">
+  <view class="review-hero">
+    <view class="review-hero__eyebrow">今日计划</view>
+    <view class="review-hero__title">待复习 {{total}} 张字卡</view>
+    <view class="review-hero__text">复习打卡与熟练度标记将在 Day 4 接入。</view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-strip">{{errorMessage}}</view>
+
+  <view wx:if="{{cards.length}}" class="preview-list">
+    <view class="preview-card surface-card" wx:for="{{cards}}" wx:key="_id">
+      <view class="preview-card__word">{{item.content}}</view>
+      <view class="preview-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}}</view>
+    </view>
+  </view>
+
+  <view wx:elif="{{!loading}}" class="surface-card empty-state">
+    <view class="empty-state__title">今天没有待复习字卡</view>
+    <view class="empty-state__text">录入新字后，系统会根据熟练度自动安排复习。</view>
+    <button class="secondary-button review-empty__button" bindtap="onAddCard">录入新字</button>
+  </view>
+
+  <view wx:else class="surface-card review-loading">正在加载今日计划</view>
+</view>

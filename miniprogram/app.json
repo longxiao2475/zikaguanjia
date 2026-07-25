@@ -1,14 +1,37 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/example/index"
+    "pages/library/index",
+    "pages/settings/index",
+    "pages/add/index",
+    "pages/review/index"
   ],
   "window": {
-    "backgroundColor": "#F6F6F6",
+    "backgroundColor": "#FAF8F5",
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#F6F6F6",
-    "navigationBarTitleText": "云开发 QuickStart",
+    "navigationBarBackgroundColor": "#FAF8F5",
+    "navigationBarTitleText": "字卡管家",
     "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#888888",
+    "selectedColor": "#FF8A65",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/library/index",
+        "text": "字卡库"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "设置"
+      }
+    ]
   },
   "sitemapLocation": "sitemap.json",
   "style": "v2",

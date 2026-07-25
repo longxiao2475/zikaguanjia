@@ -1,0 +1,32 @@
+<view class="page-shell settings-page">
+  <view class="settings-intro">
+    <view class="settings-intro__title">认字节奏</view>
+    <view class="settings-intro__text">提醒设置将在 Day 5 接入，当前先展示云端默认配置。</view>
+  </view>
+
+  <view class="settings-card surface-card">
+    <view class="settings-row">
+      <view>
+        <view class="settings-row__label">孩子昵称</view>
+        <view class="settings-row__helper">MVP 为单孩子模式</view>
+      </view>
+      <view class="settings-row__value">{{childName}}</view>
+    </view>
+    <view class="settings-row">
+      <view>
+        <view class="settings-row__label">认字日</view>
+        <view class="settings-row__helper">到认字日自动生成复习计划</view>
+      </view>
+      <view class="settings-row__value settings-row__value--wrap">{{studyDaysText}}</view>
+    </view>
+    <view class="settings-row">
+      <view>
+        <view class="settings-row__label">提醒时间</view>
+        <view class="settings-row__helper">订阅提醒功能将在 Day 5 开启</view>
+      </view>
+      <view class="settings-row__value">{{reminderTime}}</view>
+    </view>
+  </view>
+
+  <view class="version-text">字卡管家 MVP · Day 1–2</view>
+</view>

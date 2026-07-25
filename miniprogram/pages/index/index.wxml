@@ -1,29 +1,78 @@
-<!--index.wxml-->
-<view class="container">
-  <view class="title">快速了解云开发</view>
-  <view class="top_tip">免鉴权接口调用 免部署后台 高并发</view>
-  <view class="power" wx:key="title" wx:for="{{powerList}}" wx:for-item="power">
-    <view class="power_info" data-index="{{index}}" data-type="{{ power.type }}" bindtap="onClickPowerInfo">
-      <view class="power_info_text">
-        <view class="power_info_text_title">
-          {{power.title}}
-          <view class="power_info_text_tag" wx:if="{{power.tag}}">{{power.tag}}</view>
-        </view>
-        <view class="power_info_text_tip">{{power.tip}}</view>
-      </view>
-      <image wx:if="{{!power.showItem && power.item.length}}" class="power_info_more" src="../../images/arrow.svg"></image>
-      <image wx:if="{{power.showItem && power.item.length}}" class="power_info_less" src="../../images/arrow.svg"></image>
-      <image wx:if="{{!power.item.length}}" class="power_item_icon" src="../../images/arrow.svg"></image>
+<view class="page-shell home-page">
+  <view class="hero-card">
+    <view class="hero-card__eyebrow">{{dateLabel}}</view>
+    <view class="hero-card__title">{{greeting}}，{{childName}}的字卡准备好了</view>
+    <view class="hero-card__status">{{isStudyDay ? '今天是认字日' : '今天可以轻松复习'}}</view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-strip">
+    <text>{{errorMessage}}</text>
+    <button class="text-button error-strip__action" bindtap="onRetry">重试</button>
+  </view>
+
+  <view wx:if="{{showStudyBanner}}" class="study-banner tap-card" bindtap="onReview">
+    <view>
+      <view class="study-banner__title">今天该认字啦</view>
+      <view class="study-banner__text">今日重点 {{plan.overview.due}} 个字，先从不熟的开始</view>
     </view>
-    <view wx:if="{{power.showItem}}">
-      <view wx:key="title" wx:for="{{power.item}}">
-        <view class="line"></view>
-        <view class="power_item" bindtap="jumpPage" data-type="{{ item.type }}" data-page="{{item.page}}">
-          <view class="power_item_title">{{item.title}}</view>
-          <image class="power_item_icon" src="../../images/arrow.svg"></image>
-        </view>
-      </view>
+    <view class="study-banner__action">去复习</view>
+  </view>
+
+  <view class="overview-grid">
+    <view class="overview-item surface-card">
+      <view class="overview-item__value">{{plan.overview.total}}</view>
+      <view class="overview-item__label">总字数</view>
+    </view>
+    <view class="overview-item surface-card">
+      <view class="overview-item__value overview-item__value--green">{{plan.overview.mastered}}</view>
+      <view class="overview-item__label">已掌握</view>
+    </view>
+    <view class="overview-item surface-card">
+      <view class="overview-item__value overview-item__value--orange">{{plan.overview.due}}</view>
+      <view class="overview-item__label">待复习</view>
     </view>
   </view>
-  <cloud-tip-modal showTipProps="{{showTip}}" title="{{title}}" content="{{content}}"></cloud-tip-modal>
+
+  <view class="section-heading">
+    <view>
+      <view class="section-title section-heading__title">今日待复习</view>
+      <view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前</view>
+    </view>
+    <button class="text-button section-heading__more" bindtap="onOpenLibrary">全部字卡</button>
+  </view>
+
+  <view wx:if="{{showSkeleton}}" class="surface-card loading-card">
+    <view class="loading-line loading-line--wide"></view>
+    <view class="loading-line"></view>
+    <view class="loading-line"></view>
+  </view>
+
+  <view wx:elif="{{previewCards.length}}" class="review-list surface-card">
+    <view
+      class="review-row tap-card"
+      wx:for="{{previewCards}}"
+      wx:key="_id"
+      bindtap="onReview"
+    >
+      <view class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
+      <view class="review-row__content">
+        <view class="review-row__word">{{item.content}}</view>
+        <view class="review-row__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}}</view>
+      </view>
+      <view class="review-row__chevron">›</view>
+    </view>
+  </view>
+
+  <view wx:else class="surface-card empty-state">
+    <view class="empty-state__title">还没有待复习字卡</view>
+    <view class="empty-state__text">先录入孩子今天新学的字，之后会自动排进复习计划。</view>
+    <button class="secondary-button empty-state__button" bindtap="onAddCard">录入第一个字</button>
+  </view>
+
+  <view class="quick-actions">
+    <button class="primary-button quick-actions__button" bindtap="onAddCard">录入新字</button>
+    <button class="secondary-button quick-actions__button" bindtap="onReview" disabled="{{plan.overview.due === 0}}">开始复习</button>
+  </view>
+
+  <button class="floating-add" bindtap="onAddCard" aria-label="快速录入字卡">+</button>
 </view>

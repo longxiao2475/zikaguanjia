@@ -1,0 +1,62 @@
+<view class="page-shell add-page">
+  <view class="intro-block">
+    <view class="intro-block__title">录入今天新学的字</view>
+    <view class="intro-block__text">一次录入一个字或词，保存后会自动进入复习调度。</view>
+  </view>
+
+  <view class="mode-tabs surface-card">
+    <button class="mode-tab" bindtap="onVoicePending">语音录入</button>
+    <button class="mode-tab mode-tab--active">手动输入</button>
+  </view>
+
+  <view class="form-card surface-card">
+    <view class="field-label">字或词</view>
+    <input
+      class="content-input"
+      value="{{content}}"
+      maxlength="20"
+      placeholder="例如：大、大小"
+      placeholder-class="content-input__placeholder"
+      bindinput="onInput"
+      focus="{{true}}"
+    />
+    <view class="field-helper">支持单字和词语，系统会自动判断类型。</view>
+
+    <view class="field-label source-label">这张字卡是</view>
+    <view class="source-switch">
+      <button
+        class="source-option {{source === 'new' ? 'source-option--active' : ''}}"
+        data-value="new"
+        bindtap="onSelectSource"
+      >
+        <view class="source-option__title">新学</view>
+        <view class="source-option__text">默认标记为不熟</view>
+      </button>
+      <button
+        class="source-option {{source === 'reviewed' ? 'source-option--active' : ''}}"
+        data-value="reviewed"
+        bindtap="onSelectSource"
+      >
+        <view class="source-option__title">已学过</view>
+        <view class="source-option__text">默认标记为一般</view>
+      </button>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="inline-error">{{errorMessage}}</view>
+
+  <view wx:if="{{savedCard}}" class="saved-strip">
+    <view>
+      <view class="saved-strip__title">“{{savedCard.content}}”已保存</view>
+      <view class="saved-strip__text">可以继续录入下一张，或去字卡库查看。</view>
+    </view>
+    <button class="text-button saved-strip__action" bindtap="onOpenLibrary">查看</button>
+  </view>
+
+  <button
+    class="primary-button save-button"
+    loading="{{saving}}"
+    disabled="{{saving || !content}}"
+    bindtap="onSave"
+  >{{saving ? '正在保存' : '保存字卡'}}</button>
+</view>

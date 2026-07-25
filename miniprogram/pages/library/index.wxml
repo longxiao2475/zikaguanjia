@@ -1,0 +1,58 @@
+<view class="page-shell library-page">
+  <view class="library-header">
+    <view>
+      <view class="library-header__title">孩子学过的字</view>
+      <view class="library-header__text">按熟练度和复习时间自动排序</view>
+    </view>
+    <button class="secondary-button library-header__add" bindtap="onAddCard">+ 录入</button>
+  </view>
+
+  <view class="filter-tabs surface-card">
+    <button
+      wx:for="{{tabs}}"
+      wx:key="value"
+      class="filter-tab {{selectedFilter === item.value ? 'filter-tab--active' : ''}}"
+      data-value="{{item.value}}"
+      bindtap="onSelectFilter"
+    >
+      <text>{{item.label}}</text>
+      <text class="filter-tab__count">{{item.count}}</text>
+    </button>
+  </view>
+
+  <view wx:if="{{errorMessage}}" class="error-strip">
+    <text>{{errorMessage}}</text>
+    <button class="text-button error-strip__action" bindtap="onRetry">重试</button>
+  </view>
+
+  <view wx:if="{{loading}}" class="library-loading">
+    <view class="surface-card skeleton-card" wx:for="{{skeletons}}" wx:key="*this">
+      <view class="skeleton-card__dot"></view>
+      <view class="skeleton-card__body">
+        <view class="skeleton-card__line skeleton-card__line--wide"></view>
+        <view class="skeleton-card__line"></view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:elif="{{items.length}}" class="card-list">
+    <view class="word-card surface-card" wx:for="{{items}}" wx:key="_id">
+      <view class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
+      <view class="word-card__main">
+        <view class="word-card__topline">
+          <view class="word-card__content">{{item.content}}</view>
+          <view class="word-card__type">{{item.typeLabel}}</view>
+        </view>
+        <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
+      </view>
+    </view>
+    <view wx:if="{{loadingMore}}" class="load-more">正在加载更多</view>
+    <view wx:elif="{{!hasMore}}" class="load-more">已经到底了</view>
+  </view>
+
+  <view wx:else class="surface-card empty-state library-empty">
+    <view class="empty-state__title">{{selectedFilter === 'all' ? '还没有字卡' : '这个分类暂时为空'}}</view>
+    <view class="empty-state__text">{{selectedFilter === 'all' ? '录入孩子今天新学的字，系统会自动安排复习。' : '切换到“全部”看看其他字卡。'}}</view>
+    <button wx:if="{{selectedFilter === 'all'}}" class="primary-button library-empty__button" bindtap="onAddCard">录入第一个字</button>
+  </view>
+</view>
