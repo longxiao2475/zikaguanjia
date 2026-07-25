@@ -1,0 +1,22 @@
+# macOS
+.DS_Store
+
+# Local developer configuration
+project.private.config.json
+.env
+.env.*
+
+# Dependencies and generated packages
+node_modules/
+miniprogram_npm/
+cloudfunctions/**/node_modules/
+
+# Local agent/browser state and temporary artifacts
+.workbuddy/
+.playwright-mcp/
+.local-temp/
+*.log
+
+# IDE metadata
+.idea/
+.vscode/

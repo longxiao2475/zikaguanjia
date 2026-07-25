@@ -1,0 +1,1513 @@
+<!DOCTYPE html>
+<!-- saved from url=(0085)https://8765-ig7vlytg9204n1d7j6jk5.us-phx-1.sandbox.novita.ai/zikaguanjia-mockup.html -->
+<html lang="zh-CN" data-immersive-translate-page-theme="light"><script src="chrome-extension://jmidlailcccjoabccjpgefpemlgbffib/inject.js"></script><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>字卡管家 — 线框稿</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f0ebe5;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px 0;
+  }
+
+  /* ===== Phone Frame ===== */
+  .phone {
+    width: 390px;
+    height: 844px;
+    background: #faf8f5;
+    border-radius: 40px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 8px solid #1a1a1a;
+  }
+
+  /* ===== Status Bar ===== */
+  .status-bar {
+    height: 44px;
+    background: #faf8f5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    flex-shrink: 0;
+  }
+  .status-bar .time { font-size: 15px; }
+  .status-bar .icons { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+
+  /* ===== Nav Bar ===== */
+  .nav-bar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+    background: #faf8f5;
+    border-bottom: 1px solid #f0ede8;
+  }
+  .nav-bar .title { font-size: 17px; font-weight: 600; color: #2c2c2c; }
+  .nav-bar .back { position: absolute; left: 16px; font-size: 22px; color: #ff8a65; cursor: pointer; }
+  .nav-bar .right-btn { position: absolute; right: 16px; font-size: 15px; color: #ff8a65; cursor: pointer; }
+
+  /* ===== Content Area ===== */
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .content::-webkit-scrollbar { display: none; }
+
+  /* ===== Tab Bar ===== */
+  .tab-bar {
+    height: 62px;
+    background: #fff;
+    border-top: 1px solid #f0ede8;
+    display: flex;
+    flex-shrink: 0;
+    padding-bottom: 6px;
+  }
+  .tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    cursor: pointer;
+    color: #b0b0b0;
+    transition: color 0.2s;
+  }
+  .tab-item.active { color: #ff8a65; }
+  .tab-item .icon { font-size: 22px; }
+  .tab-item .label { font-size: 11px; }
+
+  /* ===== Pages ===== */
+  .page { display: none; padding: 0 0 20px 0; }
+  .page.active { display: block; }
+
+  /* ===== Cards ===== */
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    margin: 12px 16px;
+    padding: 18px 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+
+  /* ===== Colors ===== */
+  :root {
+    --primary: #ff8a65;
+    --primary-light: #fff0eb;
+    --primary-dark: #e6704a;
+    --green: #66bb6a;
+    --green-light: #e8f5e9;
+    --amber: #ffa726;
+    --amber-light: #fff3e0;
+    --red: #ef5350;
+    --red-light: #fce4ec;
+    --text: #2c2c2c;
+    --text-sub: #888;
+    --text-light: #bbb;
+    --bg: #faf8f5;
+  }
+
+  /* ===== Home Page ===== */
+  .home-header {
+    background: linear-gradient(135deg, #ff8a65, #ff7043);
+    padding: 16px 20px 28px;
+    color: #fff;
+    border-radius: 0 0 24px 24px;
+  }
+  .home-header .greeting { font-size: 15px; opacity: 0.9; margin-bottom: 4px; }
+  .home-header .date { font-size: 13px; opacity: 0.75; }
+
+  .home-overview {
+    display: flex;
+    gap: 10px;
+    margin: -20px 16px 0;
+    position: relative;
+    z-index: 2;
+  }
+  .overview-card {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    padding: 14px 10px;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+  }
+  .overview-card .num { font-size: 26px; font-weight: 700; color: var(--text); }
+  .overview-card .num.green { color: var(--green); }
+  .overview-card .num.amber { color: var(--amber); }
+  .overview-card .label { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 20px 20px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .section-title .more { font-size: 13px; color: var(--text-sub); font-weight: 400; cursor: pointer; }
+
+  .review-list .word-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f5f2ee;
+    cursor: pointer;
+  }
+  .review-list .word-item:last-child { border-bottom: none; }
+  .review-list .word-item .word {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    width: 70px;
+  }
+  .review-list .word-item .info {
+    flex: 1;
+    margin-left: 12px;
+  }
+  .review-list .word-item .type-tag {
+    font-size: 11px;
+    color: var(--text-light);
+    background: #f5f2ee;
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .review-list .word-item .meta {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-top: 4px;
+  }
+  .review-list .word-item .badge {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  .badge.red { background: var(--red); }
+  .badge.amber { background: var(--amber); }
+  .badge.green { background: var(--green); }
+
+  .quick-actions {
+    display: flex;
+    gap: 12px;
+    margin: 16px 16px;
+  }
+  .quick-btn {
+    flex: 1;
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px 12px;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    transition: transform 0.15s;
+  }
+  .quick-btn:active { transform: scale(0.96); }
+  .quick-btn .qi { font-size: 28px; margin-bottom: 6px; }
+  .quick-btn .qt { font-size: 14px; font-weight: 600; color: var(--text); }
+  .quick-btn .qs { font-size: 11px; color: var(--text-sub); margin-top: 2px; }
+  .quick-btn.primary { background: var(--primary); }
+  .quick-btn.primary .qt, .quick-btn.primary .qs { color: #fff; }
+
+  /* ===== Voice Input Button (big circle) ===== */
+  .voice-section {
+    text-align: center;
+    padding: 30px 20px 20px;
+  }
+  .voice-btn {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff8a65, #ff7043);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(255,138,101,0.4);
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: transform 0.15s;
+  }
+  .voice-btn:active { transform: scale(0.93); }
+  .voice-btn .mic { font-size: 36px; }
+  .voice-btn .hint { font-size: 12px; opacity: 0.85; }
+
+  .voice-hint-text {
+    font-size: 14px;
+    color: var(--text-sub);
+    margin-top: 16px;
+  }
+
+  .recognized-box {
+    margin: 16px;
+    background: var(--primary-light);
+    border-radius: 14px;
+    padding: 16px;
+    display: none;
+  }
+  .recognized-box.show { display: block; }
+  .recognized-box .rh {
+    font-size: 13px;
+    color: var(--primary-dark);
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .recognized-box .rw {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    padding: 10px 0;
+  }
+
+  /* Toggle for 新学/已学过 */
+  .source-toggle {
+    margin: 16px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .source-toggle .st-label { font-size: 15px; color: var(--text); font-weight: 500; }
+  .source-toggle .st-sub { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+  .toggle-switch {
+    display: flex;
+    background: #f0ede8;
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .toggle-switch .ts-opt {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-sub);
+    transition: all 0.2s;
+  }
+  .toggle-switch .ts-opt.active {
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .save-btn {
+    margin: 16px;
+    height: 50px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .save-btn:active { opacity: 0.85; }
+
+  .manual-input {
+    margin: 16px;
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px;
+  }
+  .manual-input input {
+    width: 100%;
+    border: 1.5px solid #f0ede8;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 18px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .manual-input input:focus { border-color: var(--primary); }
+  .manual-input .mi-hint { font-size: 12px; color: var(--text-sub); margin-top: 8px; }
+
+  .input-mode-tabs {
+    display: flex;
+    margin: 0 16px;
+    background: #f0ede8;
+    border-radius: 12px;
+    padding: 3px;
+  }
+  .input-mode-tabs .imt {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: 9px;
+    cursor: pointer;
+    color: var(--text-sub);
+    transition: all 0.2s;
+  }
+  .input-mode-tabs .imt.active {
+    background: #fff;
+    color: var(--text);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+
+  /* ===== Review Page ===== */
+  .review-header {
+    background: linear-gradient(135deg, #ff8a65, #ff7043);
+    padding: 16px 20px 24px;
+    color: #fff;
+    border-radius: 0 0 20px 20px;
+  }
+  .review-header .rh-title { font-size: 18px; font-weight: 600; }
+  .review-header .rh-sub { font-size: 13px; opacity: 0.85; margin-top: 4px; }
+
+  .review-word-card {
+    background: #fff;
+    border-radius: 16px;
+    margin: 12px 16px;
+    padding: 18px 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+  }
+  .review-word-card .rwc-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .review-word-card .rwc-word {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .review-word-card .rwc-word-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .review-word-card .rwc-zuci-link {
+    font-size: 12px;
+    color: var(--primary);
+    font-weight: 500;
+    cursor: pointer;
+    padding: 4px 10px;
+    background: var(--primary-light);
+    border-radius: 8px;
+    white-space: nowrap;
+  }
+  .review-word-card .rwc-priority {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+  }
+  .rwc-priority.high { background: var(--red-light); color: var(--red); }
+  .rwc-priority.mid { background: var(--amber-light); color: var(--amber); }
+  .rwc-priority.low { background: var(--green-light); color: var(--green); }
+
+  .review-word-card .rwc-meta {
+    font-size: 12px;
+    color: var(--text-sub);
+    margin-bottom: 14px;
+  }
+  .proficiency-btns {
+    display: flex;
+    gap: 10px;
+  }
+  .prof-btn {
+    flex: 1;
+    padding: 12px 0;
+    border-radius: 12px;
+    border: 2px solid #f0ede8;
+    background: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .prof-btn:active { transform: scale(0.95); }
+  .prof-btn.selected.red { border-color: var(--red); background: var(--red-light); color: var(--red); }
+  .prof-btn.selected.amber { border-color: var(--amber); background: var(--amber-light); color: var(--amber); }
+  .prof-btn.selected.green { border-color: var(--green); background: var(--green-light); color: var(--green); }
+
+  .review-complete-btn {
+    margin: 20px 16px;
+    height: 52px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 16px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(255,138,101,0.3);
+  }
+  .review-complete-btn:active { opacity: 0.85; }
+
+  /* ===== Word Bank Page ===== */
+  .filter-tabs {
+    display: flex;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+  .filter-tab {
+    padding: 7px 18px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    background: #fff;
+    color: var(--text-sub);
+    border: 1.5px solid #f0ede8;
+    transition: all 0.2s;
+  }
+  .filter-tab.active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .filter-tab .count { font-size: 12px; opacity: 0.7; }
+
+  .word-list .wl-item {
+    background: #fff;
+    margin: 8px 16px;
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.03);
+    transition: transform 0.1s;
+  }
+  .wl-item:active { transform: scale(0.98); }
+  .wl-item .badge { width: 8px; height: 8px; border-radius: 50%; margin-right: 14px; flex-shrink: 0; }
+  .wl-item .wl-word {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--text);
+    width: 65px;
+  }
+  .wl-item .wl-info { flex: 1; }
+  .wl-item .wl-type { font-size: 11px; color: var(--text-light); background: #f5f2ee; padding: 2px 7px; border-radius: 4px; display: inline-block; }
+  .wl-item .wl-meta { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+  .wl-item .wl-arrow { color: var(--text-light); font-size: 18px; }
+  .wl-item .wl-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 10px;
+  }
+  .wl-item .wl-act-btn {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    border: 1.5px solid #f0ede8;
+    background: #fff;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .wl-item .wl-act-btn.edit { color: var(--primary); }
+  .wl-item .wl-act-btn.edit:active { background: var(--primary-light); }
+  .wl-item .wl-act-btn.del { color: var(--red); }
+  .wl-item .wl-act-btn.del:active { background: var(--red-light); }
+
+  /* 编辑字卡弹层 */
+  .edit-sheet {
+    width: 100%;
+    background: #faf8f5;
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 32px;
+    animation: slideUp 0.3s ease;
+  }
+  .edit-sheet .es-handle { width: 36px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 20px; }
+  .edit-sheet .es-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 18px; text-align: center; }
+  .edit-sheet .es-field { margin-bottom: 16px; }
+  .edit-sheet .es-label { font-size: 13px; color: var(--text-sub); margin-bottom: 6px; }
+  .edit-sheet .es-input {
+    width: 100%;
+    border: 1.5px solid #f0ede8;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 18px;
+    outline: none;
+    background: #fff;
+  }
+  .edit-sheet .es-input:focus { border-color: var(--primary); }
+  .edit-sheet .es-prof-btns { display: flex; gap: 10px; }
+  .edit-sheet .es-prof-btn {
+    flex: 1; padding: 11px 0; border-radius: 12px;
+    border: 2px solid #f0ede8; background: #fff;
+    font-size: 15px; font-weight: 500; color: var(--text-sub); cursor: pointer;
+  }
+  .edit-sheet .es-prof-btn.sel.red { border-color: var(--red); background: var(--red-light); color: var(--red); }
+  .edit-sheet .es-prof-btn.sel.amber { border-color: var(--amber); background: var(--amber-light); color: var(--amber); }
+  .edit-sheet .es-prof-btn.sel.green { border-color: var(--green); background: var(--green-light); color: var(--green); }
+  .edit-sheet .es-actions { display: flex; gap: 12px; margin-top: 20px; }
+  .edit-sheet .es-btn { flex: 1; height: 46px; border-radius: 12px; border: none; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .edit-sheet .es-btn.del { background: var(--red-light); color: var(--red); }
+  .edit-sheet .es-btn.save { background: var(--primary); color: #fff; }
+
+  /* 组词弹层 */
+  .modal-overlay {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-sheet {
+    width: 100%;
+    background: #faf8f5;
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 32px;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-sheet .ms-handle {
+    width: 36px; height: 4px; background: #ddd; border-radius: 2px; margin: 0 auto 20px;
+  }
+  .modal-sheet .ms-word {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--text);
+    text-align: center;
+    margin-bottom: 6px;
+  }
+  .modal-sheet .ms-pinyin {
+    font-size: 14px;
+    color: var(--text-sub);
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .modal-sheet .ms-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+  .modal-sheet .ms-words {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .modal-sheet .ms-word-tag {
+    background: var(--primary-light);
+    color: var(--primary-dark);
+    padding: 10px 18px;
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 500;
+  }
+  .modal-sheet .ms-close {
+    margin-top: 24px;
+    width: 100%;
+    height: 46px;
+    background: #fff;
+    border: 1.5px solid #f0ede8;
+    border-radius: 12px;
+    font-size: 15px;
+    color: var(--text-sub);
+    cursor: pointer;
+  }
+
+  /* ===== Settings Page ===== */
+  .settings-group {
+    background: #fff;
+    border-radius: 16px;
+    margin: 12px 16px;
+    overflow: hidden;
+  }
+  .settings-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #f5f2ee;
+    cursor: pointer;
+  }
+  .settings-item:last-child { border-bottom: none; }
+  .settings-item .si-left { display: flex; align-items: center; gap: 12px; }
+  .settings-item .si-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .settings-item .si-label { font-size: 15px; color: var(--text); }
+  .settings-item .si-value { font-size: 14px; color: var(--text-sub); }
+  .settings-item .si-arrow { color: var(--text-light); }
+
+  /* Weekday selector */
+  .weekday-picker {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    justify-content: center;
+  }
+  .weekday-btn {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    border: 2px solid #f0ede8;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-sub);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .weekday-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+  }
+
+  /* Switch */
+  .switch {
+    width: 48px; height: 28px;
+    border-radius: 14px;
+    background: #e0ddd8;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .switch.on { background: var(--primary); }
+  .switch::after {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    top: 3px; left: 3px;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .switch.on::after { transform: translateX(20px); }
+
+  /* ===== Empty state ===== */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-light);
+  }
+  .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state .es-text { font-size: 15px; }
+
+  /* ===== Toast ===== */
+  .toast {
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.75);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 14px;
+    z-index: 200;
+    display: none;
+  }
+  .toast.show { display: block; animation: fadeIn 0.2s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ===== Screen selector (for mockup navigation) ===== */
+  .screen-selector {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 999;
+  }
+  .screen-btn {
+    padding: 8px 14px;
+    background: rgba(255,255,255,0.9);
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 12px;
+    color: #666;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+  .screen-btn:hover { background: #ff8a65; color: #fff; border-color: #ff8a65; }
+  .screen-btn.active { background: #ff8a65; color: #fff; border-color: #ff8a65; }
+
+  /* FAB on home */
+  .fab {
+    position: absolute;
+    bottom: 76px;
+    right: 20px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: none;
+    color: #fff;
+    font-size: 26px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(255,138,101,0.4);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .fab:active { transform: scale(0.9); }
+
+  /* Review done state */
+  .review-done {
+    text-align: center;
+    padding: 80px 20px;
+    display: none;
+  }
+  .review-done.show { display: block; }
+  .review-done .rd-icon { font-size: 64px; margin-bottom: 16px; }
+  .review-done .rd-title { font-size: 20px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .review-done .rd-sub { font-size: 14px; color: var(--text-sub); }
+
+  /* 订阅消息授权弹层 */
+  .sub-auth-card {
+    background: #fff;
+    border-radius: 16px;
+    margin: 16px;
+    padding: 20px 18px;
+    text-align: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    animation: slideUp 0.3s ease;
+  }
+  .sub-auth-card .sa-icon { font-size: 40px; margin-bottom: 12px; }
+  .sub-auth-card .sa-title { font-size: 17px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .sub-auth-card .sa-desc { font-size: 14px; color: var(--text-sub); line-height: 1.6; margin-bottom: 18px; }
+  .sub-auth-card .sa-btns { display: flex; gap: 12px; }
+  .sub-auth-card .sa-btn {
+    flex: 1; height: 46px; border-radius: 12px; border: none;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .sub-auth-card .sa-btn.primary { background: var(--primary); color: #fff; }
+  .sub-auth-card .sa-btn.secondary { background: #f0ede8; color: var(--text-sub); }
+
+  /* 订阅额度 banner */
+  .quota-banner {
+    margin: 10px 16px 0;
+    background: var(--amber-light);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    border: 1px solid #ffe0b2;
+  }
+  .quota-banner .qb-left { display: flex; align-items: center; gap: 10px; }
+  .quota-banner .qb-icon { font-size: 20px; }
+  .quota-banner .qb-text { font-size: 13px; color: var(--amber); line-height: 1.4; }
+  .quota-banner .qb-text strong { font-weight: 700; }
+  .quota-banner .qb-btn {
+    background: var(--amber);
+    color: #fff;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* 被动兜底提醒 banner（认字日+有待复习时显示） */
+  .reminder-banner {
+    margin: 0 16px 12px;
+    background: linear-gradient(135deg, #ff8a65, #ff7043);
+    border-radius: 14px;
+    padding: 16px 18px;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(255,138,101,0.3);
+  }
+  .reminder-banner .rb-left { display: flex; align-items: center; gap: 12px; }
+  .reminder-banner .rb-icon { font-size: 28px; }
+  .reminder-banner .rb-title { font-size: 16px; font-weight: 600; }
+  .reminder-banner .rb-sub { font-size: 13px; opacity: 0.85; margin-top: 2px; }
+  .reminder-banner .rb-go {
+    background: rgba(255,255,255,0.25);
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* 注释标签 */
+  .annotation {
+    background: #e8f0fe;
+    border-left: 3px solid #4285f4;
+    padding: 10px 14px;
+    margin: 8px 16px;
+    border-radius: 0 8px 8px 0;
+    font-size: 12px;
+    color: #555;
+    line-height: 1.6;
+  }
+  .annotation strong { color: #4285f4; }
+</style>
+</head>
+<body>
+
+<!-- Screen selector for mockup -->
+<div class="screen-selector">
+  <div class="screen-btn active" onclick="showScreen(&#39;home&#39;)">首页</div>
+  <div class="screen-btn" onclick="showScreen(&#39;input&#39;)">录入页</div>
+  <div class="screen-btn" onclick="showScreen(&#39;review&#39;)">复习页</div>
+  <div class="screen-btn" onclick="showScreen(&#39;bank&#39;)">字卡库</div>
+  <div class="screen-btn" onclick="showScreen(&#39;settings&#39;)">设置页</div>
+</div>
+
+<div class="phone">
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="time">9:41</span>
+    <span class="icons">📶 🔋</span>
+  </div>
+
+  <!-- ============ HOME PAGE ============ -->
+  <div id="page-home" class="page active" style="display:flex;flex-direction:column;height:100%;">
+    <div class="nav-bar">
+      <div class="title">字卡管家</div>
+    </div>
+    <div class="content">
+      <div class="home-header">
+        <div class="greeting">早上好，家长 👋</div>
+        <div class="date">7月24日 周四 · 今天是认字日</div>
+      </div>
+
+      <div class="reminder-banner" onclick="showScreen(&#39;review&#39;)">
+        <div class="rb-left">
+          <span class="rb-icon">📚</span>
+          <div>
+            <div class="rb-title">今天该认字啦</div>
+            <div class="rb-sub">今日重点 8 个字，点此开始</div>
+          </div>
+        </div>
+        <span class="rb-go">去复习 ›</span>
+      </div>
+
+      <div class="home-overview">
+        <div class="overview-card">
+          <div class="num">128</div>
+          <div class="label">总字数</div>
+        </div>
+        <div class="overview-card">
+          <div class="num green">76</div>
+          <div class="label">已掌握</div>
+        </div>
+        <div class="overview-card">
+          <div class="num amber">8</div>
+          <div class="label">待复习</div>
+        </div>
+      </div>
+
+      <div class="quota-banner" onclick="showToast(&#39;点击复习后可补充提醒额度&#39;)">
+        <div class="qb-left">
+          <span class="qb-icon">🔔</span>
+          <span class="qb-text">提醒额度仅剩 <strong>2 次</strong>，<br>完成复习可补充</span>
+        </div>
+        <button class="qb-btn">去补充</button>
+      </div>
+
+      <div class="section-title">
+        今日待复习 <span class="more">8个字</span>
+      </div>
+
+      <div class="card review-list" style="margin-top:0;">
+        <div class="word-item" onclick="showScreen(&#39;review&#39;)">
+          <div class="badge red"></div>
+          <div class="word">大</div>
+          <div class="info">
+            <span class="type-tag">单字</span>
+            <div class="meta">不熟 · 5天未复习</div>
+          </div>
+          <span style="color:var(--text-light);font-size:18px;">›</span>
+        </div>
+        <div class="word-item" onclick="showScreen(&#39;review&#39;)">
+          <div class="badge red"></div>
+          <div class="word">小</div>
+          <div class="info">
+            <span class="type-tag">单字</span>
+            <div class="meta">不熟 · 5天未复习</div>
+          </div>
+          <span style="color:var(--text-light);font-size:18px;">›</span>
+        </div>
+        <div class="word-item" onclick="showScreen(&#39;review&#39;)">
+          <div class="badge amber"></div>
+          <div class="word">苹果</div>
+          <div class="info">
+            <span class="type-tag">词语</span>
+            <div class="meta">一般 · 3天未复习</div>
+          </div>
+          <span style="color:var(--text-light);font-size:18px;">›</span>
+        </div>
+        <div class="word-item" onclick="showScreen(&#39;review&#39;)">
+          <div class="badge amber"></div>
+          <div class="word">山</div>
+          <div class="info">
+            <span class="type-tag">单字</span>
+            <div class="meta">一般 · 2天未复习</div>
+          </div>
+          <span style="color:var(--text-light);font-size:18px;">›</span>
+        </div>
+        <div class="word-item" onclick="showScreen(&#39;review&#39;)">
+          <div class="badge green"></div>
+          <div class="word">天</div>
+          <div class="info">
+            <span class="type-tag">单字</span>
+            <div class="meta">熟练 · 8天未复习</div>
+          </div>
+          <span style="color:var(--text-light);font-size:18px;">›</span>
+        </div>
+      </div>
+
+      <div class="quick-actions">
+        <div class="quick-btn primary" onclick="showScreen(&#39;input&#39;)">
+          <div class="qi">🎤</div>
+          <div class="qt">录入新字</div>
+          <div class="qs">语音 / 手输</div>
+        </div>
+        <div class="quick-btn" onclick="showScreen(&#39;review&#39;)">
+          <div class="qi">📚</div>
+          <div class="qt">开始复习</div>
+          <div class="qs">今日 8 个字</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="fab" onclick="showScreen(&#39;input&#39;)" title="快速录入">＋</button>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item active" onclick="showScreen(&#39;home&#39;)">
+        <span class="icon">🏠</span><span class="label">首页</span>
+      </div>
+      <div class="tab-item" onclick="showScreen(&#39;bank&#39;)">
+        <span class="icon">📋</span><span class="label">字卡库</span>
+      </div>
+      <div class="tab-item" onclick="showScreen(&#39;settings&#39;)">
+        <span class="icon">⚙️</span><span class="label">设置</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ INPUT PAGE ============ -->
+  <div id="page-input" class="page" style="display:none;flex-direction:column;height:100%;">
+    <div class="nav-bar">
+      <div class="back" onclick="showScreen(&#39;home&#39;)">‹</div>
+      <div class="title">录入字卡</div>
+    </div>
+    <div class="content">
+      <div class="input-mode-tabs" style="margin-top:16px;">
+        <div class="imt active" onclick="switchInputMode(&#39;voice&#39;)">🎤 语音录入</div>
+        <div class="imt" onclick="switchInputMode(&#39;manual&#39;)">⌨️ 手动输入</div>
+      </div>
+
+      <!-- Voice input mode -->
+      <div id="voice-mode">
+        <div class="voice-section">
+          <button class="voice-btn" onclick="simulateVoice()">
+            <span class="mic">🎤</span>
+            <span>按住说话</span>
+            <span class="hint">说一个字或词</span>
+          </button>
+          <div class="voice-hint-text">例如说"大"或"苹果"，一次一个</div>
+        </div>
+
+        <div id="recognized-box" class="recognized-box">
+          <div class="rh">✅ 识别结果（请确认）</div>
+          <div class="rw" id="recognized-word">大</div>
+        </div>
+      </div>
+
+      <!-- Manual input mode -->
+      <div id="manual-mode" style="display:none;">
+        <div class="manual-input">
+          <input type="text" placeholder="输入字或词语…" id="manual-text">
+          <div class="mi-hint">输入单个字或词语，如"大"或"苹果"</div>
+        </div>
+      </div>
+
+      <!-- Source toggle: 新学 / 已学过 -->
+      <div class="source-toggle">
+        <div>
+          <div class="st-label">字卡来源</div>
+          <div class="st-sub">新学默认"不熟"，已学过默认"一般"</div>
+        </div>
+        <div class="toggle-switch">
+          <div class="ts-opt active" onclick="switchSource(this,&#39;new&#39;)">新学</div>
+          <div class="ts-opt" onclick="switchSource(this,&#39;old&#39;)">已学过</div>
+        </div>
+      </div>
+
+      <button class="save-btn" onclick="showToast(&#39;已保存：大 · 不熟&#39;)">保存字卡</button>
+    </div>
+  </div>
+
+  <!-- ============ REVIEW PAGE ============ -->
+  <div id="page-review" class="page" style="display:none;flex-direction:column;height:100%;">
+    <div class="nav-bar">
+      <div class="back" onclick="showScreen(&#39;home&#39;)">‹</div>
+      <div class="title">今日复习</div>
+    </div>
+    <div class="content">
+      <div class="review-header">
+        <div class="rh-title">📚 今日待复习 8 个字</div>
+        <div class="rh-sub">不熟 2 · 一般 4 · 熟练 2</div>
+      </div>
+
+      <div id="review-cards">
+        <div class="review-word-card">
+          <div class="rwc-top">
+            <div class="rwc-word-wrap">
+              <div class="rwc-word" onclick="showWordDetail(&#39;大&#39;,&#39;dà&#39;,&#39;大小、大人、大家、大方、大象&#39;)">大</div>
+              <span class="rwc-zuci-link" onclick="showWordDetail(&#39;大&#39;,&#39;dà&#39;,&#39;大小、大人、大家、大方、大象&#39;)">查看组词 ›</span>
+            </div>
+            <div class="rwc-priority high">优先</div>
+          </div>
+          <div class="rwc-meta">单字 · 不熟 · 5天未复习 · 复习3次</div>
+          <div class="proficiency-btns">
+            <button class="prof-btn" onclick="markProf(this,&#39;red&#39;)">不熟</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;amber&#39;)">一般</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;green&#39;)">熟练</button>
+          </div>
+        </div>
+
+        <div class="review-word-card">
+          <div class="rwc-top">
+            <div class="rwc-word-wrap">
+              <div class="rwc-word" onclick="showWordDetail(&#39;小&#39;,&#39;xiǎo&#39;,&#39;大小、小鸟、小心、小雨、小朋友&#39;)">小</div>
+              <span class="rwc-zuci-link" onclick="showWordDetail(&#39;小&#39;,&#39;xiǎo&#39;,&#39;大小、小鸟、小心、小雨、小朋友&#39;)">查看组词 ›</span>
+            </div>
+            <div class="rwc-priority high">优先</div>
+          </div>
+          <div class="rwc-meta">单字 · 不熟 · 5天未复习 · 复习3次</div>
+          <div class="proficiency-btns">
+            <button class="prof-btn" onclick="markProf(this,&#39;red&#39;)">不熟</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;amber&#39;)">一般</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;green&#39;)">熟练</button>
+          </div>
+        </div>
+
+        <div class="review-word-card">
+          <div class="rwc-top">
+            <div class="rwc-word-wrap">
+              <div class="rwc-word" onclick="showWordDetail(&#39;苹果&#39;,&#39;píng guǒ&#39;,&#39;苹果汁、红苹果、苹果树&#39;)">苹果</div>
+              <span class="rwc-zuci-link" onclick="showWordDetail(&#39;苹果&#39;,&#39;píng guǒ&#39;,&#39;苹果汁、红苹果、苹果树&#39;)">查看组词 ›</span>
+            </div>
+            <div class="rwc-priority mid">一般</div>
+          </div>
+          <div class="rwc-meta">词语 · 一般 · 3天未复习 · 复习5次</div>
+          <div class="proficiency-btns">
+            <button class="prof-btn" onclick="markProf(this,&#39;red&#39;)">不熟</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;amber&#39;)">一般</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;green&#39;)">熟练</button>
+          </div>
+        </div>
+
+        <div class="review-word-card">
+          <div class="rwc-top">
+            <div class="rwc-word-wrap">
+              <div class="rwc-word" onclick="showWordDetail(&#39;山&#39;,&#39;shān&#39;,&#39;大山、山水、山顶、山洞、火山&#39;)">山</div>
+              <span class="rwc-zuci-link" onclick="showWordDetail(&#39;山&#39;,&#39;shān&#39;,&#39;大山、山水、山顶、山洞、火山&#39;)">查看组词 ›</span>
+            </div>
+            <div class="rwc-priority mid">一般</div>
+          </div>
+          <div class="rwc-meta">单字 · 一般 · 2天未复习 · 复习4次</div>
+          <div class="proficiency-btns">
+            <button class="prof-btn" onclick="markProf(this,&#39;red&#39;)">不熟</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;amber&#39;)">一般</button>
+            <button class="prof-btn" onclick="markProf(this,&#39;green&#39;)">熟练</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="review-complete-btn" onclick="completeReview()">完成今日复习</button>
+    </div>
+  </div>
+
+  <!-- ============ WORD BANK PAGE ============ -->
+  <div id="page-bank" class="page" style="display:none;flex-direction:column;height:100%;">
+    <div class="nav-bar">
+      <div class="title">字卡库</div>
+      <div class="right-btn" onclick="showScreen(&#39;input&#39;)">+ 录入</div>
+    </div>
+    <div class="content">
+      <div class="filter-tabs">
+        <div class="filter-tab active">全部 <span class="count">128</span></div>
+        <div class="filter-tab">待复习 <span class="count">8</span></div>
+        <div class="filter-tab">已掌握 <span class="count">76</span></div>
+      </div>
+
+      <div class="word-list">
+        <div class="wl-item">
+          <div class="badge red"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;大&#39;,&#39;dà&#39;,&#39;大小、大人、大家、大方、大象&#39;)">大</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;大&#39;,&#39;dà&#39;,&#39;大小、大人、大家、大方、大象&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">不熟 · 5天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;大&#39;,&#39;单字&#39;,&#39;unfamiliar&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：大&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge red"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;小&#39;,&#39;xiǎo&#39;,&#39;大小、小鸟、小心、小雨、小朋友&#39;)">小</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;小&#39;,&#39;xiǎo&#39;,&#39;大小、小鸟、小心、小雨、小朋友&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">不熟 · 5天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;小&#39;,&#39;单字&#39;,&#39;unfamiliar&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：小&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge amber"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;苹果&#39;,&#39;píng guǒ&#39;,&#39;苹果汁、红苹果、苹果树&#39;)">苹果</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;苹果&#39;,&#39;píng guǒ&#39;,&#39;苹果汁、红苹果、苹果树&#39;)">
+            <span class="wl-type">词语</span>
+            <div class="wl-meta">一般 · 3天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;苹果&#39;,&#39;词语&#39;,&#39;normal&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：苹果&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge amber"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;山&#39;,&#39;shān&#39;,&#39;大山、山水、山顶、山洞、火山&#39;)">山</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;山&#39;,&#39;shān&#39;,&#39;大山、山水、山顶、山洞、火山&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">一般 · 2天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;山&#39;,&#39;单字&#39;,&#39;normal&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：山&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge green"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;天&#39;,&#39;tiān&#39;,&#39;天空、天气、白天、今天、明天&#39;)">天</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;天&#39;,&#39;tiān&#39;,&#39;天空、天气、白天、今天、明天&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">熟练 · 8天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;天&#39;,&#39;单字&#39;,&#39;proficient&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：天&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge green"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;水&#39;,&#39;shuǐ&#39;,&#39;口水、山水、水果、水杯、喝水&#39;)">水</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;水&#39;,&#39;shuǐ&#39;,&#39;口水、山水、水果、水杯、喝水&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">熟练 · 10天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;水&#39;,&#39;单字&#39;,&#39;proficient&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：水&#39;)">🗑</div>
+          </div>
+        </div>
+        <div class="wl-item">
+          <div class="badge green"></div>
+          <div class="wl-word" onclick="showWordDetail(&#39;木&#39;,&#39;mù&#39;,&#39;木头、树木、木板、木马、草木&#39;)">木</div>
+          <div class="wl-info" onclick="showWordDetail(&#39;木&#39;,&#39;mù&#39;,&#39;木头、树木、木板、木马、草木&#39;)">
+            <span class="wl-type">单字</span>
+            <div class="wl-meta">熟练 · 12天前复习</div>
+          </div>
+          <div class="wl-actions">
+            <div class="wl-act-btn edit" onclick="showEditCard(&#39;木&#39;,&#39;单字&#39;,&#39;proficient&#39;)">✎</div>
+            <div class="wl-act-btn del" onclick="showToast(&#39;已删除：木&#39;)">🗑</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item" onclick="showScreen(&#39;home&#39;)">
+        <span class="icon">🏠</span><span class="label">首页</span>
+      </div>
+      <div class="tab-item active" onclick="showScreen(&#39;bank&#39;)">
+        <span class="icon">📋</span><span class="label">字卡库</span>
+      </div>
+      <div class="tab-item" onclick="showScreen(&#39;settings&#39;)">
+        <span class="icon">⚙️</span><span class="label">设置</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SETTINGS PAGE ============ -->
+  <div id="page-settings" class="page" style="display:none;flex-direction:column;height:100%;">
+    <div class="nav-bar">
+      <div class="title">设置</div>
+    </div>
+    <div class="content">
+      <div class="section-title">认字日</div>
+      <div class="settings-group">
+        <div style="padding:8px 16px 4px;font-size:13px;color:var(--text-sub);">选择每周哪几天认字</div>
+        <div class="weekday-picker">
+          <button class="weekday-btn">一</button>
+          <button class="weekday-btn active">二</button>
+          <button class="weekday-btn">三</button>
+          <button class="weekday-btn active">四</button>
+          <button class="weekday-btn">五</button>
+          <button class="weekday-btn active">六</button>
+          <button class="weekday-btn">日</button>
+        </div>
+      </div>
+
+      <div class="section-title">提醒</div>
+      <div class="settings-group">
+        <div class="settings-item">
+          <div class="si-left">
+            <div class="si-icon" style="background:var(--primary-light);">🔔</div>
+            <div class="si-label">认字提醒</div>
+          </div>
+          <div class="switch on" onclick="this.classList.toggle(&#39;on&#39;)"></div>
+        </div>
+        <div class="settings-item">
+          <div class="si-left">
+            <div class="si-icon" style="background:var(--amber-light);">⏰</div>
+            <div class="si-label">提醒时间</div>
+          </div>
+          <div class="si-value">19:00 ›</div>
+        </div>
+        <div class="settings-item" onclick="showToast(&#39;完成复习可补充提醒额度&#39;)">
+          <div class="si-left">
+            <div class="si-icon" style="background:var(--primary-light);">📊</div>
+            <div class="si-label">提醒额度</div>
+          </div>
+          <div class="si-value">剩余 5 次 ›</div>
+        </div>
+      </div>
+
+      <div class="section-title">孩子</div>
+      <div class="settings-group">
+        <div class="settings-item">
+          <div class="si-left">
+            <div class="si-icon" style="background:var(--green-light);">👶</div>
+            <div class="si-label">孩子昵称</div>
+          </div>
+          <div class="si-value">豆豆 ›</div>
+        </div>
+      </div>
+
+      <div class="section-title">关于</div>
+      <div class="settings-group">
+        <div class="settings-item">
+          <div class="si-left">
+            <div class="si-icon" style="background:#f5f2ee;">📖</div>
+            <div class="si-label">版本</div>
+          </div>
+          <div class="si-value">v1.0 MVP</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <div class="tab-item" onclick="showScreen(&#39;home&#39;)">
+        <span class="icon">🏠</span><span class="label">首页</span>
+      </div>
+      <div class="tab-item" onclick="showScreen(&#39;bank&#39;)">
+        <span class="icon">📋</span><span class="label">字卡库</span>
+      </div>
+      <div class="tab-item active" onclick="showScreen(&#39;settings&#39;)">
+        <span class="icon">⚙️</span><span class="label">设置</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 组词弹层 -->
+  <div id="word-modal" class="modal-overlay" onclick="closeModal(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="ms-handle"></div>
+      <div class="ms-word" id="modal-word">大</div>
+      <div class="ms-pinyin" id="modal-pinyin">dà</div>
+      <div class="ms-section-title">常用组词</div>
+      <div class="ms-words" id="modal-words"></div>
+      <button class="ms-close" onclick="closeModal()">关闭</button>
+    </div>
+  </div>
+
+  <!-- 编辑字卡弹层 -->
+  <div id="edit-modal" class="modal-overlay" onclick="closeEditModal(event)">
+    <div class="edit-sheet" onclick="event.stopPropagation()">
+      <div class="es-handle"></div>
+      <div class="es-title">编辑字卡</div>
+      <div class="es-field">
+        <div class="es-label">内容</div>
+        <input class="es-input" id="edit-content" type="text" value="大">
+      </div>
+      <div class="es-field">
+        <div class="es-label">熟练度</div>
+        <div class="es-prof-btns">
+          <button class="es-prof-btn" onclick="selectEditProf(this,&#39;red&#39;)" data-prof="unfamiliar">不熟</button>
+          <button class="es-prof-btn" onclick="selectEditProf(this,&#39;amber&#39;)" data-prof="normal">一般</button>
+          <button class="es-prof-btn" onclick="selectEditProf(this,&#39;green&#39;)" data-prof="proficient">熟练</button>
+        </div>
+      </div>
+      <div class="es-actions">
+        <button class="es-btn del" onclick="closeEditModal();showToast(&#39;已删除&#39;)">删除字卡</button>
+        <button class="es-btn save" onclick="closeEditModal();showToast(&#39;已保存修改&#39;)">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.page').forEach(p => {
+    p.style.display = 'none';
+    p.classList.remove('active');
+  });
+  const page = document.getElementById('page-' + name);
+  page.style.display = 'flex';
+  page.classList.add('active');
+
+  document.querySelectorAll('.screen-btn').forEach(b => b.classList.remove('active'));
+  event && event.target && event.target.classList && event.target.classList.add('active');
+
+  // Update screen selector
+  document.querySelectorAll('.screen-btn').forEach(b => {
+    if (b.textContent.includes(name === 'home' ? '首页' : name === 'input' ? '录入' : name === 'review' ? '复习' : name === 'bank' ? '字卡库' : '设置')) {
+      b.classList.add('active');
+    }
+  });
+}
+
+function switchInputMode(mode) {
+  document.querySelectorAll('.imt').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('voice-mode').style.display = mode === 'voice' ? 'block' : 'none';
+  document.getElementById('manual-mode').style.display = mode === 'manual' ? 'block' : 'none';
+}
+
+function simulateVoice() {
+  document.getElementById('recognized-box').classList.add('show');
+  document.getElementById('recognized-word').textContent = '大';
+}
+
+function switchSource(el, type) {
+  el.parentElement.querySelectorAll('.ts-opt').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function markProf(btn, color) {
+  btn.parentElement.querySelectorAll('.prof-btn').forEach(b => {
+    b.classList.remove('selected', 'red', 'amber', 'green');
+  });
+  btn.classList.add('selected', color);
+}
+
+function completeReview() {
+  document.getElementById('review-cards').innerHTML = `
+    <div class="review-done show">
+      <div class="rd-icon">🎉</div>
+      <div class="rd-title">今日复习完成！</div>
+      <div class="rd-sub">8个字已标记熟练度，明天继续加油</div>
+    </div>
+    <div class="sub-auth-card">
+      <div class="sa-icon">🔔</div>
+      <div class="sa-title">开启认字提醒？</div>
+      <div class="sa-desc">下次认字日会提前提醒你，<br>不用担心忘记今天该认字了</div>
+      <div class="sa-btns">
+        <button class="sa-btn secondary" onclick="this.closest('.sub-auth-card').style.display='none';showToast('可稍后在设置中开启')">以后再说</button>
+        <button class="sa-btn primary" onclick="this.closest('.sub-auth-card').style.display='none';showToast('已开启认字提醒 ✅')">开启提醒</button>
+      </div>
+    </div>`;
+  document.querySelector('.review-complete-btn').style.display = 'none';
+  showToast('复习已记录');
+}
+
+function showWordDetail(word, pinyin, words) {
+  document.getElementById('modal-word').textContent = word;
+  document.getElementById('modal-pinyin').textContent = pinyin;
+  const wordsArr = words.split('、');
+  document.getElementById('modal-words').innerHTML = wordsArr.map(w =>
+    `<span class="ms-word-tag">${w}</span>`).join('');
+  document.getElementById('word-modal').classList.add('show');
+}
+
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('word-modal')) return;
+  document.getElementById('word-modal').classList.remove('show');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showEditCard(word, type, prof) {
+  document.getElementById('edit-content').value = word;
+  document.querySelectorAll('.es-prof-btn').forEach(b => {
+    b.classList.remove('sel', 'red', 'amber', 'green');
+    if (b.dataset.prof === prof) {
+      const color = prof === 'unfamiliar' ? 'red' : prof === 'normal' ? 'amber' : 'green';
+      b.classList.add('sel', color);
+    }
+  });
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function selectEditProf(btn, color) {
+  btn.parentElement.querySelectorAll('.es-prof-btn').forEach(b => {
+    b.classList.remove('sel', 'red', 'amber', 'green');
+  });
+  btn.classList.add('sel', color);
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('edit-modal')) return;
+  document.getElementById('edit-modal').classList.remove('show');
+}
+</script>
+
+
+
+</body><div id="immersive-translate-popup" style="all: initial"><template shadowrootmode="open"><div id="mount" style="display: block;"></div></template></div></html>
