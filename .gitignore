@@ -15,6 +15,7 @@ cloudfunctions/**/node_modules/
 .workbuddy/
 .playwright-mcp/
 .local-temp/
+.worktrees/
 *.log
 
 # IDE metadata
