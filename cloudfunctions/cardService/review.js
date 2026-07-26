@@ -16,7 +16,7 @@ function dayNumber(value) {
 }
 
 function isDue(card, today) {
-  if (!card.lastReviewAt) return card.proficiency === 'unfamiliar';
+  if (!card.lastReviewAt) return true;
   const elapsedDays = dayNumber(today) - dayNumber(card.lastReviewAt);
   if (card.proficiency === 'unfamiliar') return true;
   if (card.proficiency === 'normal') return elapsedDays >= 2;

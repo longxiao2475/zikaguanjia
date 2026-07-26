@@ -15,6 +15,18 @@ test('新录入的不熟字卡立即进入今日复习', () => {
   assert.deepEqual(getTodayReviewCards(cards, TODAY).map((card) => card._id), ['1']);
 });
 
+test('从未复习的一般和熟练字卡也进入首次复习', () => {
+  const cards = [
+    { _id: 'normal-new', proficiency: 'normal', lastReviewAt: null },
+    { _id: 'proficient-new', proficiency: 'proficient', lastReviewAt: null },
+  ];
+
+  assert.deepEqual(
+    getTodayReviewCards(cards, TODAY).map((card) => card._id),
+    ['normal-new', 'proficient-new'],
+  );
+});
+
 test('一般字卡满两天、熟练字卡满七天才进入复习', () => {
   const cards = [
     { _id: 'normal-1', proficiency: 'normal', lastReviewAt: '2026-07-24T04:00:00.000Z' },

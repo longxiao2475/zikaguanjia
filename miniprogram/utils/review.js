@@ -29,7 +29,7 @@ function daysSince(value, today) {
 
 function isDue(card, today = new Date()) {
   if (!card || card.status === 'deleted') return false;
-  if (!card.lastReviewAt) return card.proficiency === 'unfamiliar';
+  if (!card.lastReviewAt) return true;
 
   const elapsedDays = daysSince(card.lastReviewAt, today);
   if (card.proficiency === 'unfamiliar') return true;

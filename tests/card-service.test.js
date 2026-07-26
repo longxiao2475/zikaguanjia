@@ -87,6 +87,28 @@ test('今日计划按调度规则返回统计和总览', async () => {
   assert.deepEqual(result.overview, { total: 3, mastered: 1, due: 2 });
 });
 
+test('已学过但从未复习的字卡进入今日计划', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      {
+        _id: 'history-1',
+        childId: 'child-1',
+        normalizedContent: '合作',
+        status: 'active',
+        proficiency: 'normal',
+        lastReviewAt: null,
+      },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const result = await service.getTodayPlan('openid-1', { childId: 'child-1' });
+
+  assert.deepEqual(result.cards.map((card) => card._id), ['history-1']);
+});
+
 test('列表支持待复习和已掌握筛选并返回数量', async () => {
   const repository = createMemoryRepository({
     cards: [
