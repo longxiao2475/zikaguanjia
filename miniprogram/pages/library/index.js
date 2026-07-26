@@ -1,5 +1,7 @@
+const cache = require('../../utils/cache');
 const cardApi = require('../../utils/card');
 const session = require('../../utils/session');
+const { toggleSelectedId } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
 
 const TAB_DEFINITIONS = [
@@ -19,12 +21,30 @@ Page({
     loading: true,
     loadingMore: false,
     errorMessage: '',
+    keyword: '',
+    selectionMode: false,
+    selectedIds: [],
+    selectedCount: 0,
     showWordSheet: false,
     wordSheetCard: null,
   },
 
   onShow() {
+    const intendedFilter = cache.consumeLibraryFilterIntent();
+    if (intendedFilter && intendedFilter !== this.data.selectedFilter) {
+      this.setData({
+        selectedFilter: intendedFilter,
+        keyword: '',
+        items: [],
+        page: 1,
+        hasMore: false,
+      });
+    }
     this.loadCards(true);
+  },
+
+  onUnload() {
+    clearTimeout(this._searchTimer);
   },
 
   async ensureChild() {
@@ -35,7 +55,10 @@ Page({
   },
 
   async loadCards(reset = false) {
-    if (this._loading) return;
+    if (this._loading) {
+      if (reset) this._reloadAfterCurrent = true;
+      return;
+    }
     this._loading = true;
     const nextPage = reset ? 1 : this.data.page + 1;
     this.setData({
@@ -49,10 +72,14 @@ Page({
       const result = await cardApi.listCards({
         childId: child._id,
         filter: this.data.selectedFilter,
+        keyword: this.data.keyword,
         page: nextPage,
         pageSize: 20,
       });
-      const incoming = (result.items || []).map((card) => decorateCard(card));
+      const incoming = (result.items || []).map((card) => ({
+        ...decorateCard(card),
+        selected: this.data.selectedIds.includes(card._id),
+      }));
       const items = reset ? incoming : [...this.data.items, ...incoming];
       const counts = result.counts || { all: 0, due: 0, mastered: 0 };
       this.setData({
@@ -67,6 +94,9 @@ Page({
       this._loading = false;
       this.setData({ loading: false, loadingMore: false });
       wx.stopPullDownRefresh();
+      const shouldReload = this._reloadAfterCurrent;
+      this._reloadAfterCurrent = false;
+      if (shouldReload) this.loadCards(true);
     }
   },
 
@@ -87,6 +117,57 @@ Page({
 
   onRetry() {
     this.loadCards(true);
+  },
+
+  onKeywordInput(event) {
+    const keyword = event.detail.value;
+    this.setData({ keyword });
+    clearTimeout(this._searchTimer);
+    this._searchTimer = setTimeout(() => this.loadCards(true), 300);
+  },
+
+  onClearKeyword() {
+    clearTimeout(this._searchTimer);
+    this.setData({ keyword: '' });
+    this.loadCards(true);
+  },
+
+  onToggleSelectionMode() {
+    const selectionMode = !this.data.selectionMode;
+    const selectedIds = selectionMode ? this.data.selectedIds : [];
+    this.setData({
+      selectionMode,
+      selectedIds,
+      selectedCount: selectedIds.length,
+      items: this.data.items.map((item) => ({
+        ...item,
+        selected: selectedIds.includes(item._id),
+      })),
+    });
+  },
+
+  onToggleCardSelection(event) {
+    const targetId = event.currentTarget.dataset.id;
+    if (!this.data.selectedIds.includes(targetId) && this.data.selectedIds.length >= 50) {
+      wx.showToast({ title: '一次最多选择 50 张', icon: 'none' });
+      return;
+    }
+    const selectedIds = toggleSelectedId(this.data.selectedIds, targetId);
+    this.setData({
+      selectedIds,
+      selectedCount: selectedIds.length,
+      items: this.data.items.map((item) => ({
+        ...item,
+        selected: selectedIds.includes(item._id),
+      })),
+    });
+  },
+
+  onStartSelectedReview() {
+    if (!this.data.selectedIds.length) return;
+    cache.setManualReviewQueue(this.data.selectedIds);
+    this.setData({ selectionMode: false, selectedIds: [], selectedCount: 0 });
+    wx.navigateTo({ url: '/pages/review/index?source=manual' });
   },
 
   onAddCard() {

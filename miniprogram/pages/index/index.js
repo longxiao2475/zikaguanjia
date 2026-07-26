@@ -109,7 +109,11 @@ Page({
     wx.navigateTo({ url: '/pages/review/index' });
   },
 
-  onOpenLibrary() {
+  onOpenLibrary(event = {}) {
+    const filter = event.currentTarget && event.currentTarget.dataset
+      ? event.currentTarget.dataset.filter
+      : 'all';
+    cache.setLibraryFilterIntent(filter || 'all');
     wx.switchTab({ url: '/pages/library/index' });
   },
 

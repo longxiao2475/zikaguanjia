@@ -121,3 +121,30 @@ test('首页同时包含认字日兜底和额度预警入口', () => {
   assert.equal(indexWxml.includes('今天该认字啦'), true);
   assert.equal(indexWxml.includes('提醒次数不足'), true);
 });
+
+test('首页统计卡可导航到字卡库筛选', () => {
+  const indexJs = read('miniprogram/pages/index/index.js');
+  const indexWxml = read('miniprogram/pages/index/index.wxml');
+  assert.equal(indexJs.includes('setLibraryFilterIntent'), true);
+  for (const filter of ['all', 'mastered', 'due']) {
+    assert.equal(indexWxml.includes(`data-filter="${filter}"`), true);
+  }
+  assert.equal(indexWxml.includes('bindtap="onOpenLibrary"'), true);
+});
+
+test('字卡库包含搜索、多选和开始复习入口', () => {
+  const libraryJs = read('miniprogram/pages/library/index.js');
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  for (const token of [
+    'onKeywordInput',
+    'onClearKeyword',
+    'onToggleSelectionMode',
+    'onToggleCardSelection',
+    'onStartSelectedReview',
+  ]) {
+    assert.equal(libraryJs.includes(token), true, `missing ${token}`);
+  }
+  assert.equal(libraryWxml.includes('placeholder="搜索字或词"'), true);
+  assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
+  assert.equal(libraryWxml.includes('开始复习'), true);
+});

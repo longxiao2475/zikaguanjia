@@ -1,3 +1,7 @@
+.library-page {
+  padding-bottom: calc(170rpx + env(safe-area-inset-bottom));
+}
+
 .library-header {
   padding: 10rpx 4rpx 24rpx;
   display: flex;
@@ -22,6 +26,41 @@
   padding: 0 24rpx;
   flex: 0 0 auto;
   font-size: 27rpx;
+}
+
+.library-tools {
+  margin-bottom: 18rpx;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.library-search {
+  min-width: 0;
+  min-height: 82rpx;
+  padding: 0 18rpx 0 24rpx;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.library-search__input {
+  min-width: 0;
+  flex: 1;
+  font-size: 27rpx;
+}
+
+.library-search__clear {
+  min-width: 80rpx;
+  color: var(--color-primary-dark);
+  font-size: 23rpx;
+}
+
+.library-select {
+  width: 160rpx;
+  min-height: 82rpx;
+  flex: 0 0 auto;
+  font-size: 24rpx;
 }
 
 .filter-tabs {
@@ -106,6 +145,24 @@
   flex: 1;
 }
 
+.word-card__selector {
+  width: 44rpx;
+  height: 44rpx;
+  border: 2rpx solid #D7D1CB;
+  border-radius: 22rpx;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 26rpx;
+}
+
+.word-card__selector--selected {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+}
+
 .word-card__topline {
   display: flex;
   align-items: center;
@@ -147,6 +204,31 @@
   color: var(--color-text-muted);
   text-align: center;
   font-size: 24rpx;
+}
+
+.selection-bar {
+  position: fixed;
+  left: 24rpx;
+  right: 24rpx;
+  bottom: calc(22rpx + env(safe-area-inset-bottom));
+  z-index: 20;
+  padding: 18rpx 20rpx;
+  border-radius: 30rpx;
+  background: #FFFFFF;
+  box-shadow: 0 14rpx 38rpx rgba(83, 58, 42, 0.18);
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.selection-bar__count {
+  flex: 1;
+  font-size: 27rpx;
+  font-weight: 650;
+}
+
+.selection-bar__button {
+  width: 240rpx;
 }
 
 .skeleton-card__dot {

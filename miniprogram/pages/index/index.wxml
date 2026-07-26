@@ -27,15 +27,15 @@
   </view>
 
   <view class="overview-grid">
-    <view class="overview-item surface-card">
+    <view class="overview-item surface-card tap-card" data-filter="all" bindtap="onOpenLibrary">
       <view class="overview-item__value">{{plan.overview.total}}</view>
       <view class="overview-item__label">总字数</view>
     </view>
-    <view class="overview-item surface-card">
+    <view class="overview-item surface-card tap-card" data-filter="mastered" bindtap="onOpenLibrary">
       <view class="overview-item__value overview-item__value--green">{{plan.overview.mastered}}</view>
       <view class="overview-item__label">已掌握</view>
     </view>
-    <view class="overview-item surface-card">
+    <view class="overview-item surface-card tap-card" data-filter="due" bindtap="onOpenLibrary">
       <view class="overview-item__value overview-item__value--orange">{{plan.overview.due}}</view>
       <view class="overview-item__label">待复习</view>
     </view>
@@ -46,7 +46,7 @@
       <view class="section-title section-heading__title">今日待复习</view>
       <view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前</view>
     </view>
-    <button class="text-button section-heading__more" bindtap="onOpenLibrary">全部字卡</button>
+    <button class="text-button section-heading__more" data-filter="all" bindtap="onOpenLibrary">全部字卡</button>
   </view>
 
   <view wx:if="{{showSkeleton}}" class="surface-card loading-card">

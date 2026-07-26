@@ -120,6 +120,7 @@
 .overview-item {
   padding: 26rpx 12rpx;
   text-align: center;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
 .overview-item__value {
