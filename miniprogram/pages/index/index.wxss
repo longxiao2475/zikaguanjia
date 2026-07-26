@@ -253,10 +253,12 @@
   box-shadow: 0 14rpx 34rpx rgba(230, 112, 74, 0.32);
   font-size: 54rpx;
   font-weight: 300;
-  line-height: 104rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.floating-add:active {
+.floating-add--pressed {
   transform: scale(0.94);
 }
 

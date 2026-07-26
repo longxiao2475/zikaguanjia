@@ -4,7 +4,7 @@
 > 基于 PRD v1.1 + 全部决策确认
 > v2.0 变更：① 主体类型确认=个人，语音走 Path B ② 广告移出 MVP ③ 字卡额度机制待 PM 最终确认（冻结中）④ 组词词典数据已完成 ⑤ 项目骨架已建成
 > **v2.1 变更（2026-07-25 技术核查 + 新需求落地）**：
-> ① DeepSeek AI 任务拆解已移出 MVP、待单独立项；askDeepSeek 代码保留但不部署，getHistory 已删除
+> ① DeepSeek AI 任务拆解已移出 MVP、待单独立项；Day 6 已从 MVP 仓库删除 askDeepSeek / aiTask 示例，getHistory 已删除
 > ② 核查修正：分包词典被主包 require 会丧失分包意义（见 §6.6）
 > ③ 核查修正：仓库当前仍是云开发 QuickStart 模板，v2.0 所述"骨架已建成（43 文件）"尚未合入仓库（见 §10.4）
 > ④ 补充云函数超时/密钥环境变量等合规配置清单（见 §13）
@@ -44,7 +44,6 @@
 │  │  · sendReminder (定时触发)    │            │
 │  │  · asrProxy (语音识别代理)    │            │
 │  │  · syncSettings (设置同步)    │            │
-│  │  · askDeepSeek (AI任务拆解)   │ ← v2.1 待立项│
 │  └──────────┬───────────────────┘            │
 │  ┌──────────┴───────────────────┐            │
 │  │  云数据库                     │            │
@@ -571,11 +570,11 @@ v2.0 方案中 `utils/dict.js`（主包）`require('../packageDict/dict-data.jso
 | 约束 | 落地 |
 |------|------|
 | 前端禁止直连大模型 API | 前端只 `wx.cloud.callFunction`，代码库中不得出现 DeepSeek 域名/Key |
-| 密钥不出服务端 | `DEEPSEEK_API_KEY` 配置在 **云开发控制台 → 云函数 → askDeepSeek → 环境变量**，代码只 `process.env.DEEPSEEK_API_KEY` 读取，严禁硬编码 |
+| 密钥不出服务端 | 未来立项时将 `DEEPSEEK_API_KEY` 配置在 **云开发控制台 → 云函数 → askDeepSeek → 环境变量**，代码仅允许读取 `process.env.DEEPSEEK_API_KEY`，严禁硬编码 |
 | 身份可信 | openid 一律取 `cloud.getWXContext().OPENID`（微信注入），不信任前端传参 |
 | 防刷 | 入参 ≤200 字 + 云函数内校验；后续可加单用户日调用上限 |
 
-### 7A.2 云函数 askDeepSeek（已落地 cloudfunctions/askDeepSeek/）
+### 7A.2 云函数 askDeepSeek（方案留档，代码已从 MVP 仓库清理）
 
 流程：校验入参 → 原生 https 调 `https://api.deepseek.com/chat/completions`（`model=deepseek-chat`，`response_format={type:'json_object'}` 强制 JSON，system prompt 约束字段）→ 解析并校验 `encouragement/steps/tips` → 写 `tasks` 集合 → 返回。
 
@@ -595,7 +594,7 @@ DeepSeek 输入 ~300 tokens + 输出 ~400 tokens/次，单价约 ¥2/百万输�
 
 ### 7A.5 接口定义
 
-**askDeepSeek**（待立项，先不部署）
+**askDeepSeek**（待立项；以下仅为历史方案，不在当前仓库部署）
 ```
 入参: { "task": "今天想带果果认识大小多少" }   // ≤200字
 出参: { "code": 0, "data": { "_id", "task", "result": { "encouragement", "steps", "tips" } } }
@@ -615,7 +614,7 @@ DeepSeek 输入 ~300 tokens + 输出 ~400 tokens/次，单价约 ¥2/百万输�
 | syncSettings | 前端调用 | 同步设置 + 提醒额度管理 | 必须 | ✅ 已确认 |
 | sendReminder | 定时触发器 | 扫描认字日用户发提醒 | 必须 | ✅ 不受额度重构影响 |
 | asrProxy | 前端调用 | 语音识别代理 | 必须 | ✅ 已就绪 |
-| askDeepSeek | 前端调用 | DeepSeek 任务拆解 + 写 tasks 集合 | 待立项 | ⚠️ 代码在仓库，PRD 未定，先不部署 |
+| askDeepSeek | 前端调用 | DeepSeek 任务拆解 + 写 tasks 集合 | 待立项 | ❌ Day 6 已从 MVP 仓库清理，立项后恢复 |
 | ~~getHistory~~ | — | AI 历史查询 | 否 | ❌ 已删除（16:51，产品无头像入口） |
 
 ### 7.2 云开发资源估算（MVP 单用户）
@@ -778,23 +777,20 @@ zikaguanjia/
 3. **配置腾讯云 ASR 密钥**（asrProxy 云函数环境变量 `TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY`，不要硬编码）
 4. 额度机制已确认：subscriptionQuota 保留不变，4 处冻结已解除
 
-> DeepSeek 密钥、`tasks` 集合及 askDeepSeek 部署不属于 MVP 开工项；仅在该能力重新立项并补齐 PRD/设计后处理。getHistory 已删除，不再部署。
+> DeepSeek 密钥、`tasks` 集合及 askDeepSeek 部署不属于 MVP 开工项；Day 6 已清理对应示例代码，仅在重新立项并补齐 PRD/设计后从 Git 历史恢复或重新实现。getHistory 已删除，不再部署。
 
 ### 10.4 ⚠️ v2.1 核查：仓库现状与骨架的差距
 
-当前仓库仍是**云开发 QuickStart 模板**（pages 仅 index/example，云函数业务骨架尚未补齐，无 tabBar/无多数业务 utils），v2.0 所述"43 文件骨架"尚未合入本仓库。本次 v2.1 / Day 0 已先落地：
+以下是 v2.1 / Day 0 当时的仓库快照；当前 Day 6 已完成业务骨架并清理 QuickStart 与未立项 AI 示例：
 
 ```
-cloudfunctions/
-├── quickstartFunctions/   # 模板自带，验收前可删
-└── askDeepSeek/           # v2.1 新增，待立项，先不部署
+cloudfunctions/            # Day 6 已移除 quickstartFunctions 与 askDeepSeek
 miniprogram/
 └── utils/
-    ├── aiTask.js          # v2.1 新增，AI 调用封装（getHistory 部分已失效，立项后修剪）
     └── dict-data.json     # Day 0 落库，3000 字裁剪词典
 ```
 
-后续按 §10.1 结构补齐 5 页面 + 6 utils + 3 云函数骨架时，utils 中需新增 `aiTask.js`（已就位）。
+后续若重新立项 AI 任务拆解，再按新 PRD 新增 `aiTask.js` 与 askDeepSeek；当前 MVP 不保留占位代码。
 
 ---
 
@@ -802,7 +798,7 @@ miniprogram/
 
 | 密钥 | 存放位置 | 读取方式 | 用途 |
 |------|---------|---------|------|
-| DEEPSEEK_API_KEY | 云函数 askDeepSeek 环境变量 | `process.env.DEEPSEEK_API_KEY` | DeepSeek 任务拆解 |
+| DEEPSEEK_API_KEY | 未来 askDeepSeek 云函数环境变量 | `process.env.DEEPSEEK_API_KEY` | DeepSeek 任务拆解（未立项） |
 | TENCENT_SECRET_ID / SECRET_KEY | 云函数 asrProxy 环境变量 | `process.env.TENCENT_*` | 云端 ASR |
 | 订阅消息模板 ID | 前端 subscribe.js + sendReminder 常量 | 配置项（非密钥） | 订阅消息 |
 
@@ -831,7 +827,7 @@ miniprogram/
 - [x] 定义数据结构 + Storage 工具层
 - [x] 创建云函数骨架 (syncSettings / sendReminder / asrProxy)
 - [x] 组词词典数据提取（3000字）
-- [x] **v2.1：askDeepSeek 与 aiTask.js 代码保留待立项；getHistory 已删除，MVP 不部署 DeepSeek 能力**
+- [x] **Day 6：askDeepSeek 与 aiTask.js 示例已从 MVP 仓库清理；getHistory 已删除，立项后从 Git 历史恢复或重建**
 - [x] 申请订阅消息模板（“复习通知”，私有模板 ID 与字段映射已确认）
 - [x] 替换云开发环境 ID（app.js 已配置）
 - [ ] 配置腾讯云 ASR 密钥（环境变量）

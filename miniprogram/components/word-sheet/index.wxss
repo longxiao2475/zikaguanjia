@@ -27,15 +27,21 @@
 
 .word-sheet__close {
   position: absolute;
-  top: 24rpx;
-  right: 28rpx;
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 36rpx;
+  top: 16rpx;
+  right: 20rpx;
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
   color: #767676;
   background: #F6F3EF;
   font-size: 42rpx;
-  line-height: 70rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.word-sheet__close--pressed {
+  opacity: 0.72;
 }
 
 .word-sheet__word {
@@ -93,6 +99,8 @@
   padding: 0 24rpx;
   border: 2rpx solid #F0EDE8;
   border-radius: 24rpx;
+  color: #2C2C2C;
+  caret-color: #E6704A;
   background: #FAF8F5;
   flex: 1;
   font-size: 28rpx;
@@ -110,4 +118,3 @@
   align-items: center;
   justify-content: center;
 }
-

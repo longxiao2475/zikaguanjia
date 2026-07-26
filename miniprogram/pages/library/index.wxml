@@ -7,17 +7,21 @@
     <button class="secondary-button library-header__add" bindtap="onAddCard">+ 录入</button>
   </view>
 
+  <view class="library-search surface-card">
+    <input
+      class="library-search__input"
+      value="{{keyword}}"
+      placeholder="搜索字或词"
+      placeholder-class="library-search__placeholder"
+      cursor-color="#E6704A"
+      confirm-type="search"
+      bindinput="onKeywordInput"
+    />
+    <button wx:if="{{keyword}}" class="library-search__clear" bindtap="onClearKeyword">清除</button>
+  </view>
+
   <view class="library-tools">
-    <view class="library-search surface-card">
-      <input
-        class="library-search__input"
-        value="{{keyword}}"
-        placeholder="搜索字或词"
-        confirm-type="search"
-        bindinput="onKeywordInput"
-      />
-      <button wx:if="{{keyword}}" class="library-search__clear" bindtap="onClearKeyword">清除</button>
-    </view>
+    <view class="library-tools__count">{{keyword ? '找到' : '当前'}} {{totalResults}} 张字卡</view>
     <button class="secondary-button library-select" bindtap="onToggleSelectionMode">
       {{selectionMode ? '取消选择' : '选择复习'}}
     </button>
@@ -53,13 +57,17 @@
 
   <view wx:elif="{{items.length}}" class="card-list">
     <view class="word-card surface-card" wx:for="{{items}}" wx:key="_id">
-      <button
+      <view
         wx:if="{{selectionMode}}"
-        class="word-card__selector {{item.selected ? 'word-card__selector--selected' : ''}}"
+        class="word-card__selector-hit"
         data-id="{{item._id}}"
         bindtap="onToggleCardSelection"
         aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.content}}"
-      >{{item.selected ? '✓' : ''}}</button>
+        aria-role="checkbox"
+        aria-checked="{{item.selected}}"
+      >
+        <view class="word-card__selector {{item.selected ? 'word-card__selector--selected' : ''}}">{{item.selected ? '✓' : ''}}</view>
+      </view>
       <view wx:else class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
       <view class="word-card__main" data-id="{{item._id}}" bindtap="onOpenWordSheet">
         <view class="word-card__topline">
@@ -68,6 +76,15 @@
         </view>
         <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
       </view>
+      <view
+        wx:if="{{!selectionMode}}"
+        class="word-card__edit"
+        data-id="{{item._id}}"
+        catchtap="onOpenEdit"
+        hover-class="word-card__edit--pressed"
+        aria-role="button"
+        aria-label="编辑{{item.content}}"
+      >编辑</view>
     </view>
     <view wx:if="{{loadingMore}}" class="load-more">正在加载更多</view>
     <view wx:elif="{{!hasMore}}" class="load-more">已经到底了</view>
@@ -95,4 +112,50 @@
     bindclose="onCloseWordSheet"
     bindsavecustomword="onSaveCustomWord"
   />
+
+  <view wx:if="{{showEditSheet}}" class="edit-sheet-mask" bindtap="onCloseEdit">
+    <view class="edit-sheet" catchtap="swallow">
+      <view class="edit-sheet__handle"></view>
+      <view class="edit-sheet__title">编辑字卡</view>
+
+      <view class="edit-sheet__label">内容</view>
+      <input
+        class="edit-sheet__input"
+        value="{{editContent}}"
+        maxlength="20"
+        bindinput="onEditContentInput"
+        disabled="{{editSaving}}"
+        cursor-color="#E6704A"
+      />
+      <view class="edit-sheet__helper">修改内容后，原来补充的组词会清空。</view>
+
+      <view class="edit-sheet__label edit-sheet__label--proficiency">熟练度</view>
+      <view class="edit-sheet__proficiencies">
+        <button
+          class="edit-sheet__proficiency edit-sheet__proficiency--unfamiliar {{editProficiency === 'unfamiliar' ? 'edit-sheet__proficiency--active' : ''}}"
+          data-value="unfamiliar"
+          bindtap="onSelectEditProficiency"
+          disabled="{{editSaving}}"
+        >不熟</button>
+        <button
+          class="edit-sheet__proficiency edit-sheet__proficiency--normal {{editProficiency === 'normal' ? 'edit-sheet__proficiency--active' : ''}}"
+          data-value="normal"
+          bindtap="onSelectEditProficiency"
+          disabled="{{editSaving}}"
+        >一般</button>
+        <button
+          class="edit-sheet__proficiency edit-sheet__proficiency--proficient {{editProficiency === 'proficient' ? 'edit-sheet__proficiency--active' : ''}}"
+          data-value="proficient"
+          bindtap="onSelectEditProficiency"
+          disabled="{{editSaving}}"
+        >熟练</button>
+      </view>
+
+      <view class="edit-sheet__actions">
+        <button class="edit-sheet__delete" bindtap="onDeleteCard" disabled="{{editSaving}}">删除字卡</button>
+        <button class="primary-button edit-sheet__save" bindtap="onSaveEdit" loading="{{editSaving}}" disabled="{{editSaving}}">保存修改</button>
+      </view>
+      <button class="text-button edit-sheet__cancel" bindtap="onCloseEdit" disabled="{{editSaving}}">取消</button>
+    </view>
+  </view>
 </view>

@@ -30,6 +30,13 @@ function mergeWords(content, customWords) {
   ]);
 }
 
+function getPinyin(content) {
+  const characters = Array.from(normalizeWord(content));
+  if (!characters.length) return '';
+  const syllables = characters.map((character) => pinyinData[character] || '');
+  return syllables.every(Boolean) ? syllables.join(' ') : '';
+}
+
 function validateCustomWord(content, input) {
   const normalizedContent = normalizeWord(content);
   const word = normalizeWord(input);
@@ -55,7 +62,7 @@ function getWordDetail(card = {}) {
   const dictionaryWords = getDictionaryWords(content);
   return {
     content,
-    pinyin: Array.from(content).length === 1 ? (pinyinData[content] || '') : '',
+    pinyin: getPinyin(content),
     words: uniqueWords([...customWords, ...dictionaryWords]),
     customWords,
     dictionaryWords,
@@ -65,6 +72,7 @@ function getWordDetail(card = {}) {
 module.exports = {
   RECOMMENDED_WORDS,
   getDictionaryWords,
+  getPinyin,
   getWordDetail,
   mergeWords,
   normalizeWord,

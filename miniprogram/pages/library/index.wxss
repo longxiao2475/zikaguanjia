@@ -29,25 +29,37 @@
 }
 
 .library-tools {
-  margin-bottom: 18rpx;
+  min-height: 88rpx;
+  margin-bottom: 10rpx;
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  justify-content: space-between;
+  gap: 20rpx;
 }
 
 .library-search {
+  width: 100%;
   min-width: 0;
-  min-height: 82rpx;
+  height: 92rpx;
+  margin-bottom: 12rpx;
   padding: 0 18rpx 0 24rpx;
   display: flex;
   align-items: center;
-  flex: 1;
 }
 
 .library-search__input {
+  width: 100%;
+  height: 88rpx;
   min-width: 0;
+  color: var(--color-text);
+  caret-color: var(--color-primary-dark);
   flex: 1;
-  font-size: 27rpx;
+  font-size: 30rpx;
+  line-height: 88rpx;
+}
+
+.library-search__placeholder {
+  color: var(--color-text-muted);
 }
 
 .library-search__clear {
@@ -57,9 +69,14 @@
 }
 
 .library-select {
-  width: 160rpx;
-  min-height: 82rpx;
+  width: 180rpx;
+  min-height: 76rpx;
   flex: 0 0 auto;
+  font-size: 24rpx;
+}
+
+.library-tools__count {
+  color: var(--color-text-secondary);
   font-size: 24rpx;
 }
 
@@ -145,17 +162,48 @@
   flex: 1;
 }
 
+.word-card__selector-hit {
+  width: 88rpx;
+  height: 88rpx;
+  margin: -22rpx -14rpx -22rpx -22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
 .word-card__selector {
-  width: 44rpx;
-  height: 44rpx;
+  width: 38rpx;
+  height: 38rpx;
   border: 2rpx solid #D7D1CB;
-  border-radius: 22rpx;
+  border-radius: 50%;
   color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  font-size: 26rpx;
+  font-size: 23rpx;
+  line-height: 38rpx;
+}
+
+.word-card__edit {
+  width: 88rpx;
+  min-width: 88rpx;
+  height: 88rpx;
+  margin: -12rpx -12rpx -12rpx 0;
+  border-radius: 24rpx;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  flex: 0 0 auto;
+  font-size: 24rpx;
+  font-weight: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.word-card__edit--pressed {
+  opacity: 0.72;
 }
 
 .word-card__selector--selected {
@@ -247,4 +295,124 @@
   width: 76%;
   height: 30rpx;
   margin-top: 0;
+}
+
+.edit-sheet-mask {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+  background: rgba(44, 44, 44, 0.42);
+  display: flex;
+  align-items: flex-end;
+}
+
+.edit-sheet {
+  width: 100%;
+  padding: 20rpx 34rpx calc(30rpx + env(safe-area-inset-bottom));
+  border-radius: 38rpx 38rpx 0 0;
+  background: #FFFFFF;
+}
+
+.edit-sheet__handle {
+  width: 72rpx;
+  height: 8rpx;
+  margin: 0 auto 18rpx;
+  border-radius: 4rpx;
+  background: #E4DFD9;
+}
+
+.edit-sheet__title {
+  text-align: center;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.edit-sheet__label {
+  margin-top: 30rpx;
+  color: var(--color-text-secondary);
+  font-size: 25rpx;
+  font-weight: 600;
+}
+
+.edit-sheet__label--proficiency {
+  margin-top: 28rpx;
+}
+
+.edit-sheet__input {
+  width: 100%;
+  height: 96rpx;
+  margin-top: 10rpx;
+  padding: 0 24rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  color: var(--color-text);
+  caret-color: var(--color-primary-dark);
+  background: #FCFBF9;
+  font-size: 34rpx;
+}
+
+.edit-sheet__helper {
+  margin-top: 8rpx;
+  color: var(--color-text-muted);
+  font-size: 23rpx;
+}
+
+.edit-sheet__proficiencies {
+  margin-top: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+}
+
+.edit-sheet__proficiency {
+  min-height: 88rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  color: var(--color-text-secondary);
+  font-size: 27rpx;
+  font-weight: 650;
+}
+
+.edit-sheet__proficiency--unfamiliar.edit-sheet__proficiency--active {
+  border-color: var(--color-unfamiliar);
+  color: #B43835;
+  background: #FFF0EE;
+}
+
+.edit-sheet__proficiency--normal.edit-sheet__proficiency--active {
+  border-color: var(--color-normal);
+  color: #A65A00;
+  background: #FFF5E5;
+}
+
+.edit-sheet__proficiency--proficient.edit-sheet__proficiency--active {
+  border-color: var(--color-proficient);
+  color: #317A39;
+  background: #EEF8EF;
+}
+
+.edit-sheet__actions {
+  margin-top: 34rpx;
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 16rpx;
+}
+
+.edit-sheet__delete,
+.edit-sheet__save {
+  min-height: 92rpx;
+  border-radius: 26rpx;
+  font-size: 28rpx;
+  font-weight: 650;
+}
+
+.edit-sheet__delete {
+  color: #B43835;
+  background: #FFF0EE;
+}
+
+.edit-sheet__cancel {
+  width: 100%;
+  min-height: 80rpx;
+  margin-top: 8rpx;
 }

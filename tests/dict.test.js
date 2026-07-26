@@ -32,12 +32,16 @@ test('自定义组词执行标准化和输入约束', () => {
   assert.equal(validateCustomWord('大', '大一二三四五六七八九十一二').code, 'CUSTOM_WORD_TOO_LONG');
 });
 
-test('词语字卡不查询单字词典但保留自定义组词', () => {
+test('词语字卡逐字展示拼音，不查询单字组词但保留自定义相关词', () => {
   assert.deepEqual(getWordDetail({ content: '大小', customWords: ['大小不同'] }), {
     content: '大小',
-    pinyin: '',
+    pinyin: 'dà xiǎo',
     words: ['大小不同'],
     customWords: ['大小不同'],
     dictionaryWords: [],
   });
+});
+
+test('常见词语可从本地静态表拼出完整拼音', () => {
+  assert.equal(getWordDetail({ content: '礼物' }).pinyin, 'lǐ wù');
 });

@@ -150,23 +150,53 @@ test('首页统计卡可导航到字卡库筛选', () => {
     assert.equal(indexWxml.includes(`data-filter="${filter}"`), true);
   }
   assert.equal(indexWxml.includes('bindtap="onOpenLibrary"'), true);
+  assert.equal(indexWxml.includes('class="floating-add"'), true);
+  assert.equal(indexWxml.includes('<button class="floating-add"'), false);
 });
 
 test('字卡库包含搜索、多选和开始复习入口', () => {
   const libraryJs = read('miniprogram/pages/library/index.js');
   const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
   for (const token of [
     'onKeywordInput',
     'onClearKeyword',
     'onToggleSelectionMode',
     'onToggleCardSelection',
     'onStartSelectedReview',
+    'onOpenEdit',
+    'onSaveEdit',
+    'onDeleteCard',
   ]) {
     assert.equal(libraryJs.includes(token), true, `missing ${token}`);
   }
   assert.equal(libraryWxml.includes('placeholder="搜索字或词"'), true);
+  assert.equal(libraryWxml.includes('word-card__selector-hit'), true);
+  assert.equal(libraryWxml.includes('<button\n        wx:if="{{selectionMode}}"\n        class="word-card__selector'), false);
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
   assert.equal(libraryWxml.includes('开始复习'), true);
+  assert.equal(libraryWxml.includes('编辑字卡'), true);
+  assert.equal(libraryWxml.includes('删除字卡'), true);
+  assert.equal(libraryWxml.includes('class="word-card__edit"'), true);
+  assert.equal(libraryWxml.includes('<button\n        wx:if="{{!selectionMode}}"\n        class="word-card__edit"'), false);
+  assert.equal(libraryWxss.includes('color: var(--color-text);'), true);
+  assert.equal(libraryWxss.includes('caret-color: var(--color-primary-dark);'), true);
+  assert.equal(libraryWxss.includes('width: 38rpx;'), true);
+});
+
+test('固定尺寸图标控件不使用会被模拟器拉伸的原生 button', () => {
+  const wordSheetWxml = read('miniprogram/components/word-sheet/index.wxml');
+  const wordSheetWxss = read('miniprogram/components/word-sheet/index.wxss');
+  assert.equal(wordSheetWxml.includes('class="word-sheet__close"'), true);
+  assert.equal(wordSheetWxml.includes('<button class="word-sheet__close"'), false);
+  assert.equal(wordSheetWxml.includes('cursor-color="#E6704A"'), true);
+  assert.equal(wordSheetWxss.includes('width: 88rpx;'), true);
+});
+
+test('Day 6 已移除 QuickStart 云函数残留', () => {
+  assert.equal(fs.existsSync(path.join(root, 'cloudfunctions/quickstartFunctions')), false);
+  assert.equal(fs.existsSync(path.join(root, 'cloudfunctions/askDeepSeek')), false);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/utils/aiTask.js')), false);
 });
 
 test('设置页完整保留七天选择并移除开发阶段文案', () => {

@@ -82,5 +82,11 @@
     <button class="secondary-button quick-actions__button" bindtap="onReview" disabled="{{plan.overview.due === 0}}">开始复习</button>
   </view>
 
-  <button class="floating-add" bindtap="onAddCard" aria-label="快速录入字卡">+</button>
+  <view
+    class="floating-add"
+    bindtap="onAddCard"
+    hover-class="floating-add--pressed"
+    aria-role="button"
+    aria-label="快速录入字卡"
+  >+</view>
 </view>
