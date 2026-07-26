@@ -1,6 +1,6 @@
 {
   "navigationBarTitleText": "今日复习",
   "usingComponents": {
-    "word-sheet": "/components/word-sheet/index"
+    "word-sheet": "../../components/word-sheet/index"
   }
 }

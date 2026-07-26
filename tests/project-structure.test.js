@@ -64,7 +64,7 @@ test('全局样式包含项目语义色和触控尺寸 token', () => {
   }
 });
 
-test('复习页和字卡库共用 word-sheet 组件', () => {
+test('复习页和字卡库的 word-sheet 相对路径可解析', () => {
   for (const extension of ['js', 'json', 'wxml', 'wxss']) {
     assert.equal(
       fs.existsSync(path.join(root, `miniprogram/components/word-sheet/index.${extension}`)),
@@ -73,10 +73,30 @@ test('复习页和字卡库共用 word-sheet 组件', () => {
     );
   }
 
-  const reviewConfig = JSON.parse(read('miniprogram/pages/review/index.json'));
-  const libraryConfig = JSON.parse(read('miniprogram/pages/library/index.json'));
-  assert.equal(reviewConfig.usingComponents['word-sheet'], '/components/word-sheet/index');
-  assert.equal(libraryConfig.usingComponents['word-sheet'], '/components/word-sheet/index');
+  for (const page of ['review', 'library']) {
+    const configPath = `miniprogram/pages/${page}/index.json`;
+    const config = JSON.parse(read(configPath));
+    const componentPath = config.usingComponents['word-sheet'];
+    assert.equal(componentPath.startsWith('../../components/'), true);
+    const resolved = path.resolve(
+      root,
+      `miniprogram/pages/${page}`,
+      `${componentPath}.json`,
+    );
+    assert.equal(fs.existsSync(resolved), true, `${page} word-sheet should resolve`);
+  }
+});
+
+test('复习页补查并消费临时复习队列', () => {
+  const reviewJs = read('miniprogram/pages/review/index.js');
+  for (const token of [
+    'getManualReviewQueue',
+    'getCardsByIds',
+    'mergeReviewCards',
+    'clearManualReviewQueue',
+  ]) {
+    assert.equal(reviewJs.includes(token), true, `missing ${token}`);
+  }
 });
 
 test('复习完成页和设置页接入订阅额度入口', () => {

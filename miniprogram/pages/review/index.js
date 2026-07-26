@@ -8,6 +8,7 @@ const {
   createReviewState,
   markCurrent,
 } = require('../../utils/review-flow');
+const { mergeReviewCards } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
 
 Page({
@@ -29,9 +30,10 @@ Page({
     wordSheetCard: null,
   },
 
-  onLoad() {
+  onLoad(options = {}) {
+    this._manualSource = options.source === 'manual';
     const cached = cache.getTodayPlan();
-    if (cached) this.applyPlan(cached);
+    if (cached && !this._manualSource) this.applyPlan(cached);
     this.loadPlan();
   },
 
@@ -60,7 +62,22 @@ Page({
       let { child } = session.getCachedSession();
       if (!child) ({ child } = await session.bootstrap());
       const plan = await cardApi.getTodayPlan(child._id);
-      this.applyPlan(plan);
+      let cards = plan.cards || [];
+
+      if (this._manualSource) {
+        const queue = cache.getManualReviewQueue();
+        if (queue && queue.cardIds.length) {
+          const manualCards = await cardApi.getCardsByIds(child._id, queue.cardIds);
+          cards = mergeReviewCards(cards, manualCards);
+          if (manualCards.length < queue.cardIds.length) {
+            wx.showToast({ title: '部分字卡已不可用', icon: 'none' });
+          }
+          cache.clearManualReviewQueue();
+        }
+        this._manualSource = false;
+      }
+
+      this.applyPlan({ ...plan, cards });
     } catch (error) {
       this.setData({ errorMessage: error.message || '复习计划加载失败' });
     } finally {

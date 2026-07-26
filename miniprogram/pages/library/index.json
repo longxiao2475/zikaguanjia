@@ -3,6 +3,6 @@
   "enablePullDownRefresh": true,
   "backgroundTextStyle": "dark",
   "usingComponents": {
-    "word-sheet": "/components/word-sheet/index"
+    "word-sheet": "../../components/word-sheet/index"
   }
 }
