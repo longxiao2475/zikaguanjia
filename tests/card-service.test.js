@@ -126,6 +126,57 @@ test('列表支持待复习和已掌握筛选并返回数量', async () => {
   assert.deepEqual(due.counts, { all: 2, due: 1, mastered: 1 });
 });
 
+test('列表按标准化后的汉字片段搜索并叠加筛选', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'a', childId: 'child-1', content: '礼物', normalizedContent: '礼物', status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+      { _id: 'b', childId: 'child-1', content: '合作', normalizedContent: '合作', status: 'active', proficiency: 'normal', lastReviewAt: '2026-07-23T04:00:00.000Z' },
+      { _id: 'c', childId: 'child-1', content: '吃饭', normalizedContent: '吃饭', status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-24T04:00:00.000Z' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const result = await service.list('openid-1', {
+    childId: 'child-1',
+    filter: 'due',
+    keyword: ' 礼 ',
+    page: 1,
+    pageSize: 20,
+  });
+
+  assert.deepEqual(result.items.map((card) => card._id), ['a']);
+  assert.equal(result.total, 1);
+  assert.deepEqual(result.counts, { all: 3, due: 2, mastered: 1 });
+});
+
+test('按 ID 补查只返回当前孩子的活动字卡并保持请求顺序', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'a', ownerOpenid: 'openid-1', childId: 'child-1', status: 'active', content: '礼' },
+      { _id: 'b', ownerOpenid: 'openid-1', childId: 'child-1', status: 'deleted', content: '物' },
+      { _id: 'c', ownerOpenid: 'openid-1', childId: 'other-child', status: 'active', content: '吃' },
+      { _id: 'd', ownerOpenid: 'openid-1', childId: 'child-1', status: 'active', content: '饭' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const result = await service.getByIds('openid-1', {
+    childId: 'child-1',
+    cardIds: ['d', 'b', 'a', 'a', 'c'],
+  });
+
+  assert.deepEqual(result.map((card) => card._id), ['d', 'a']);
+  await assert.rejects(
+    () => service.getByIds('openid-1', {
+      childId: 'child-1',
+      cardIds: Array.from({ length: 51 }, (_, index) => `card-${index}`),
+    }),
+    (error) => error.code === 'CARD_IDS_TOO_MANY',
+  );
+});
+
 test('删除字卡采用软删除并校验归属', async () => {
   const repository = createMemoryRepository({
     cards: [{ _id: 'card-1', ownerOpenid: 'openid-1', childId: 'child-1', status: 'active', proficiency: 'unfamiliar' }],

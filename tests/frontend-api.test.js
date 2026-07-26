@@ -86,6 +86,23 @@ test('首页第一页全部列表会覆盖字卡缓存', async () => {
   assert.deepEqual(cache.getCards(), [{ _id: 'a' }]);
 });
 
+test('搜索列表透传 keyword，按 ID 补查调用 getByIds', async () => {
+  cache.setCards([{ _id: 'keep' }]);
+  global.__cloudResponse = { result: { ok: true, data: { items: [] } } };
+  await cardApi.listCards({ childId: 'c1', filter: 'all', keyword: '礼', page: 1 });
+  assert.equal(calls[0].data.keyword, '礼');
+  assert.deepEqual(cache.getCards(), [{ _id: 'keep' }]);
+
+  global.__cloudResponse = { result: { ok: true, data: [{ _id: 'a' }] } };
+  const cards = await cardApi.getCardsByIds('c1', ['a']);
+  assert.deepEqual(calls[1].data, {
+    action: 'getByIds',
+    childId: 'c1',
+    cardIds: ['a'],
+  });
+  assert.deepEqual(cards, [{ _id: 'a' }]);
+});
+
 test('完成复习后合并返回字卡并废弃今日计划缓存', async () => {
   cache.setCards([
     { _id: 'a', proficiency: 'unfamiliar' },

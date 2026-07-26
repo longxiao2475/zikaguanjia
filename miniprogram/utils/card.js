@@ -12,11 +12,21 @@ async function createCard(payload) {
 
 async function listCards(payload) {
   const result = await callFunction('cardService', { action: 'list', ...payload });
-  if ((payload.filter || 'all') === 'all' && Number(payload.page || 1) === 1) {
+  if ((payload.filter || 'all') === 'all'
+    && !String(payload.keyword || '').trim()
+    && Number(payload.page || 1) === 1) {
     cache.setCards(result.items || []);
     cache.setLastSyncAt(Date.now());
   }
   return result;
+}
+
+async function getCardsByIds(childId, cardIds) {
+  return callFunction('cardService', {
+    action: 'getByIds',
+    childId,
+    cardIds,
+  });
 }
 
 async function getTodayPlan(childId) {
@@ -45,6 +55,7 @@ async function deleteCard(payload) {
 module.exports = {
   createCard,
   deleteCard,
+  getCardsByIds,
   getTodayPlan,
   listCards,
   updateCard,

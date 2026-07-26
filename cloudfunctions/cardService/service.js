@@ -74,7 +74,11 @@ function createCardService(repository, options = {}) {
     const todayCards = getTodayReviewCards(allCards, now());
     const masteredCards = allCards.filter((card) => card.proficiency === 'proficient');
     const filter = ['all', 'due', 'mastered'].includes(payload.filter) ? payload.filter : 'all';
-    const filtered = filter === 'due' ? todayCards : filter === 'mastered' ? masteredCards : allCards;
+    const byFilter = filter === 'due' ? todayCards : filter === 'mastered' ? masteredCards : allCards;
+    const keyword = normalizeContent(payload.keyword || '');
+    const filtered = keyword
+      ? byFilter.filter((card) => normalizeContent(card.normalizedContent || card.content).includes(keyword))
+      : byFilter;
     const page = Math.max(1, Number(payload.page) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(payload.pageSize) || 20));
     const offset = (page - 1) * pageSize;
@@ -92,6 +96,24 @@ function createCardService(repository, options = {}) {
         mastered: masteredCards.length,
       },
     };
+  }
+
+  async function getByIds(openid, payload = {}) {
+    await assertChildOwnership(openid, payload.childId);
+    const rawIds = Array.isArray(payload.cardIds) ? payload.cardIds : [];
+    if (rawIds.length > 50) {
+      throw businessError('CARD_IDS_TOO_MANY', '一次最多选择 50 张字卡');
+    }
+    const cardIds = [...new Set(rawIds
+      .filter((id) => typeof id === 'string' && id.trim())
+      .map((id) => id.trim()))];
+    const cards = await Promise.all(cardIds.map((id) => repository.findCardById(id)));
+    return cards.filter((card) => (
+      card
+      && card.childId === payload.childId
+      && card.ownerOpenid === openid
+      && card.status === 'active'
+    ));
   }
 
   async function getTodayPlan(openid, payload = {}) {
@@ -154,6 +176,7 @@ function createCardService(repository, options = {}) {
 
   return {
     create,
+    getByIds,
     getTodayPlan,
     list,
     remove,

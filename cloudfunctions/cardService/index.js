@@ -9,6 +9,7 @@ const service = createCardService(repository);
 
 const actions = {
   create: service.create,
+  getByIds: service.getByIds,
   list: service.list,
   getTodayPlan: service.getTodayPlan,
   update: service.update,
