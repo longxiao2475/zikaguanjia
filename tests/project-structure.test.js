@@ -63,3 +63,61 @@ test('全局样式包含项目语义色和触控尺寸 token', () => {
     assert.equal(wxss.includes(token), true, `missing ${token}`);
   }
 });
+
+test('复习页和字卡库共用 word-sheet 组件', () => {
+  for (const extension of ['js', 'json', 'wxml', 'wxss']) {
+    assert.equal(
+      fs.existsSync(path.join(root, `miniprogram/components/word-sheet/index.${extension}`)),
+      true,
+      `word-sheet/index.${extension} should exist`,
+    );
+  }
+
+  const reviewConfig = JSON.parse(read('miniprogram/pages/review/index.json'));
+  const libraryConfig = JSON.parse(read('miniprogram/pages/library/index.json'));
+  assert.equal(reviewConfig.usingComponents['word-sheet'], '/components/word-sheet/index');
+  assert.equal(libraryConfig.usingComponents['word-sheet'], '/components/word-sheet/index');
+});
+
+test('复习完成页和设置页接入订阅额度入口', () => {
+  const reviewJs = read('miniprogram/pages/review/index.js');
+  const reviewWxml = read('miniprogram/pages/review/index.wxml');
+  const settingsJs = read('miniprogram/pages/settings/index.js');
+  const settingsWxml = read('miniprogram/pages/settings/index.wxml');
+
+  assert.equal(reviewJs.includes("subscribe.requestGrant('review_complete')"), true);
+  assert.equal(reviewWxml.includes('开启提醒'), true);
+  assert.equal(reviewWxml.includes('以后再说'), true);
+  assert.equal(settingsJs.includes("subscribe.requestGrant('settings')"), true);
+  assert.equal(settingsWxml.includes('补充提醒次数'), true);
+});
+
+test('Day 4 和 Day 5 云函数结构与消息字段齐全', () => {
+  for (const name of ['reviewService', 'subscriptionService', 'sendReminder']) {
+    for (const file of ['index.js', 'service.js', 'repository.js', 'package.json', 'config.json']) {
+      assert.equal(
+        fs.existsSync(path.join(root, `cloudfunctions/${name}/${file}`)),
+        true,
+        `${name}/${file} should exist`,
+      );
+    }
+  }
+
+  const reminderIndex = read('cloudfunctions/sendReminder/index.js');
+  const reminderSchedule = read('cloudfunctions/sendReminder/schedule.js');
+  const subscriptionService = read('cloudfunctions/subscriptionService/service.js');
+  for (const token of ['number1', 'thing2', 'time5']) {
+    assert.equal(reminderSchedule.includes(token), true, `missing ${token}`);
+  }
+  assert.equal(reminderIndex.includes('cloud.openapi.subscribeMessage.send'), true);
+  assert.equal(subscriptionService.includes('38gNuA8j_S9YEP-incMBQnGnjVE6WxP1Lm8NRRPngkM'), true);
+});
+
+test('首页同时包含认字日兜底和额度预警入口', () => {
+  const indexJs = read('miniprogram/pages/index/index.js');
+  const indexWxml = read('miniprogram/pages/index/index.wxml');
+  assert.equal(indexJs.includes('getHomeBanners'), true);
+  assert.equal(indexJs.includes("subscribe.requestGrant('home_quota_banner')"), true);
+  assert.equal(indexWxml.includes('今天该认字啦'), true);
+  assert.equal(indexWxml.includes('提醒次数不足'), true);
+});

@@ -1,5 +1,30 @@
 const DEFAULT_STUDY_DAYS = Object.freeze([2, 4, 6]);
 
+function businessError(code, message) {
+  const error = new Error(message || code);
+  error.code = code;
+  return error;
+}
+
+function normalizeName(value) {
+  const name = typeof value === 'string' ? value.normalize('NFKC').trim() : '';
+  if (Array.from(name).length > 12) {
+    throw businessError('CHILD_NAME_TOO_LONG', '孩子昵称不能超过 12 个字');
+  }
+  return name;
+}
+
+function normalizeStudyDays(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw businessError('STUDY_DAYS_REQUIRED', '请至少选择一个认字日');
+  }
+  const days = [...new Set(value.map(Number))];
+  if (days.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) {
+    throw businessError('STUDY_DAYS_INVALID', '认字日设置无效');
+  }
+  return days.sort((left, right) => left - right);
+}
+
 function createSyncSettingsService(repository) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
 
@@ -47,10 +72,37 @@ function createSyncSettingsService(repository) {
     return { user, child };
   }
 
-  return { bootstrap };
+  async function saveSettings(openid, payload = {}) {
+    if (!openid || typeof openid !== 'string') throw businessError('OPENID_REQUIRED', '登录状态已失效');
+    const childId = typeof payload.childId === 'string' ? payload.childId.trim() : '';
+    if (!childId) throw businessError('CHILD_ID_REQUIRED', '请选择孩子');
+    const child = await repository.findChildById(childId);
+    if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
+      throw businessError('CHILD_FORBIDDEN', '无权修改该孩子设置');
+    }
+    const reminderTime = typeof payload.reminderTime === 'string' ? payload.reminderTime.trim() : '';
+    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) {
+      throw businessError('REMINDER_TIME_INVALID', '提醒时间格式无效');
+    }
+    if (typeof payload.reminderEnabled !== 'boolean') {
+      throw businessError('REMINDER_ENABLED_INVALID', '提醒开关设置无效');
+    }
+    return repository.updateChild(childId, {
+      name: normalizeName(payload.name),
+      studyDays: normalizeStudyDays(payload.studyDays),
+      reminderTime,
+      reminderEnabled: payload.reminderEnabled,
+      timezone: 'Asia/Shanghai',
+    });
+  }
+
+  return { bootstrap, saveSettings };
 }
 
 module.exports = {
   DEFAULT_STUDY_DAYS,
+  businessError,
   createSyncSettingsService,
+  normalizeName,
+  normalizeStudyDays,
 };

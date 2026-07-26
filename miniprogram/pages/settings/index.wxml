@@ -1,32 +1,71 @@
 <view class="page-shell settings-page">
   <view class="settings-intro">
     <view class="settings-intro__title">认字节奏</view>
-    <view class="settings-intro__text">提醒设置将在 Day 5 接入，当前先展示云端默认配置。</view>
+    <view class="settings-intro__text">选好认字日和时间，到点提醒家长陪孩子复习。</view>
   </view>
 
+  <view wx:if="{{errorMessage}}" class="error-strip">{{errorMessage}}</view>
+
   <view class="settings-card surface-card">
-    <view class="settings-row">
-      <view>
-        <view class="settings-row__label">孩子昵称</view>
-        <view class="settings-row__helper">MVP 为单孩子模式</view>
-      </view>
-      <view class="settings-row__value">{{childName}}</view>
+    <view class="settings-block">
+      <view class="settings-block__label">孩子昵称</view>
+      <input
+        class="settings-input"
+        maxlength="12"
+        placeholder="可不填"
+        value="{{childName}}"
+        bindinput="onNameInput"
+      />
     </view>
-    <view class="settings-row">
-      <view>
-        <view class="settings-row__label">认字日</view>
-        <view class="settings-row__helper">到认字日自动生成复习计划</view>
+
+    <view class="settings-block">
+      <view class="settings-block__label">认字日</view>
+      <view class="settings-block__helper">至少选择一天</view>
+      <view class="day-picker">
+        <button
+          wx:for="{{dayOptions}}"
+          wx:key="value"
+          class="day-picker__item {{item.selected ? 'day-picker__item--selected' : ''}}"
+          data-day="{{item.value}}"
+          bindtap="onToggleDay"
+        >{{item.label}}</button>
       </view>
-      <view class="settings-row__value settings-row__value--wrap">{{studyDaysText}}</view>
     </view>
+
     <view class="settings-row">
       <view>
         <view class="settings-row__label">提醒时间</view>
-        <view class="settings-row__helper">订阅提醒功能将在 Day 5 开启</view>
+        <view class="settings-row__helper">每小时任务会在所选小时内发送</view>
       </view>
-      <view class="settings-row__value">{{reminderTime}}</view>
+      <picker mode="time" value="{{reminderTime}}" bindchange="onTimeChange">
+        <view class="settings-row__value">{{reminderTime}} ›</view>
+      </picker>
+    </view>
+
+    <view class="settings-row">
+      <view>
+        <view class="settings-row__label">认字提醒</view>
+        <view class="settings-row__helper">关闭后不再发送订阅消息</view>
+      </view>
+      <switch color="#FF8A65" checked="{{reminderEnabled}}" bindchange="onReminderToggle" />
     </view>
   </view>
 
-  <view class="version-text">字卡管家 MVP · Day 1–2</view>
+  <view class="quota-card surface-card">
+    <view>
+      <view class="quota-card__label">剩余提醒次数</view>
+      <view class="quota-card__helper">每成功发送一次消耗 1 次</view>
+    </view>
+    <view class="quota-card__value">{{subscriptionQuota}}</view>
+  </view>
+
+  <button class="secondary-button quota-grant" bindtap="onRequestGrant" loading="{{subscribing}}">
+    补充提醒次数
+  </button>
+
+  <button class="primary-button settings-save" bindtap="onSave" loading="{{saving}}" disabled="{{loading || saving}}">
+    {{saving ? '保存中' : '保存设置'}}
+  </button>
+
+  <view class="version-text">字卡管家 MVP · Day 5</view>
 </view>

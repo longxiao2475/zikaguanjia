@@ -1,6 +1,8 @@
 const cache = require('../../utils/cache');
 const cardApi = require('../../utils/card');
 const session = require('../../utils/session');
+const subscribe = require('../../utils/subscribe');
+const { getHomeBanners } = require('../../utils/home');
 const { isStudyDay } = require('../../utils/review');
 const {
   decorateCard,
@@ -26,6 +28,9 @@ Page({
     plan: EMPTY_PLAN,
     previewCards: [],
     showStudyBanner: false,
+    showQuotaBanner: false,
+    subscriptionQuota: 0,
+    subscribing: false,
   },
 
   onLoad() {
@@ -38,18 +43,20 @@ Page({
 
   hydrateFromCache() {
     const now = new Date();
-    const { child } = session.getCachedSession();
+    const { user, child } = session.getCachedSession();
     const cachedPlan = cache.getTodayPlan() || EMPTY_PLAN;
-    this.applyState(child, cachedPlan, now);
+    this.applyState(user, child, cachedPlan, now);
   },
 
-  applyState(child, plan, now = new Date()) {
+  applyState(user, child, plan, now = new Date()) {
     const safePlan = {
       cards: Array.isArray(plan && plan.cards) ? plan.cards : [],
       stats: (plan && plan.stats) || EMPTY_PLAN.stats,
       overview: (plan && plan.overview) || EMPTY_PLAN.overview,
     };
     const studyDay = isStudyDay(child || {}, now);
+    const quota = user && user.subscriptionQuota;
+    const banners = getHomeBanners({ studyDay, due: safePlan.overview.due, quota });
     this.setData({
       greeting: getGreeting(now),
       dateLabel: formatDisplayDate(now),
@@ -57,7 +64,9 @@ Page({
       isStudyDay: studyDay,
       plan: safePlan,
       previewCards: safePlan.cards.slice(0, 6).map((card) => decorateCard(card, now)),
-      showStudyBanner: studyDay && safePlan.overview.due > 0,
+      showStudyBanner: banners.showStudyBanner,
+      showQuotaBanner: banners.showQuotaBanner,
+      subscriptionQuota: Number(quota || 0),
     });
   },
 
@@ -71,9 +80,9 @@ Page({
       errorMessage: '',
     });
     try {
-      const { child } = await session.bootstrap();
+      const { user, child } = await session.bootstrap();
       const plan = await cardApi.getTodayPlan(child._id);
-      this.applyState(child, plan);
+      this.applyState(user, child, plan);
       getApp().globalData.sessionReady = true;
     } catch (error) {
       this.setData({ errorMessage: error.message || '加载失败，请稍后重试' });
@@ -102,5 +111,22 @@ Page({
 
   onOpenLibrary() {
     wx.switchTab({ url: '/pages/library/index' });
+  },
+
+  async onRequestReminderQuota() {
+    if (this.data.subscribing) return;
+    this.setData({ subscribing: true });
+    try {
+      const result = await subscribe.requestGrant('home_quota_banner');
+      if (result.accepted) {
+        const { user, child } = session.getCachedSession();
+        this.applyState(user, child, this.data.plan);
+        wx.showToast({ title: '已增加 1 次提醒', icon: 'success' });
+      }
+    } catch (error) {
+      wx.showToast({ title: error.message || '订阅失败，请稍后重试', icon: 'none' });
+    } finally {
+      this.setData({ subscribing: false });
+    }
   },
 });

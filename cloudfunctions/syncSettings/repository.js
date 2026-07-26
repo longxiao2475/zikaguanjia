@@ -45,6 +45,13 @@ function createSyncSettingsRepository(db) {
       });
       return readById(users, id);
     },
+
+    async updateChild(id, updates) {
+      await children.doc(id).update({
+        data: { ...updates, updatedAt: db.serverDate() },
+      });
+      return readById(children, id);
+    },
   };
 }
 

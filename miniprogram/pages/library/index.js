@@ -19,6 +19,8 @@ Page({
     loading: true,
     loadingMore: false,
     errorMessage: '',
+    showWordSheet: false,
+    wordSheetCard: null,
   },
 
   onShow() {
@@ -89,5 +91,34 @@ Page({
 
   onAddCard() {
     wx.navigateTo({ url: '/pages/add/index' });
+  },
+
+  onOpenWordSheet(event) {
+    const cardId = event.currentTarget.dataset.id;
+    const card = this.data.items.find((item) => item._id === cardId);
+    if (card) this.setData({ showWordSheet: true, wordSheetCard: card });
+  },
+
+  onCloseWordSheet() {
+    this.setData({ showWordSheet: false });
+  },
+
+  async onSaveCustomWord(event) {
+    const detail = event.detail || {};
+    try {
+      const child = await this.ensureChild();
+      const updated = decorateCard(await cardApi.updateCard({
+        childId: child._id,
+        cardId: detail.cardId,
+        customWords: detail.customWords,
+      }));
+      this.setData({
+        items: this.data.items.map((item) => (item._id === updated._id ? updated : item)),
+        wordSheetCard: updated,
+      });
+      wx.showToast({ title: '已添加组词', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '组词保存失败', icon: 'none' });
+    }
   },
 });

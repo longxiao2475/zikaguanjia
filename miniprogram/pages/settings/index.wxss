@@ -17,10 +17,14 @@
   overflow: hidden;
 }
 
+.settings-block,
 .settings-row {
-  min-height: 138rpx;
   padding: 26rpx 28rpx;
   border-bottom: 2rpx solid var(--color-border);
+}
+
+.settings-row {
+  min-height: 132rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -31,31 +35,95 @@
   border-bottom: 0;
 }
 
+.settings-block__label,
 .settings-row__label {
   font-size: 29rpx;
   font-weight: 650;
 }
 
-.settings-row__helper {
+.settings-block__helper,
+.settings-row__helper,
+.quota-card__helper {
   margin-top: 6rpx;
   color: var(--color-text-secondary);
   font-size: 23rpx;
 }
 
-.settings-row__value {
-  flex: 0 0 auto;
-  color: var(--color-primary-dark);
-  font-size: 27rpx;
-  font-weight: 620;
+.settings-input {
+  min-height: 88rpx;
+  margin-top: 14rpx;
+  padding: 0 22rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 22rpx;
+  background: #FAF8F5;
+  font-size: 28rpx;
 }
 
-.settings-row__value--wrap {
-  max-width: 250rpx;
-  text-align: right;
+.day-picker {
+  margin-top: 20rpx;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 10rpx;
+}
+
+.day-picker__item {
+  width: 68rpx;
+  height: 68rpx;
+  border-radius: 34rpx;
+  color: var(--color-text-secondary);
+  background: #F4F1ED;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 25rpx;
+}
+
+.day-picker__item--selected {
+  color: #FFFFFF;
+  background: var(--color-primary);
+  box-shadow: 0 8rpx 18rpx rgba(230, 112, 74, 0.22);
+}
+
+.settings-row__value {
+  min-height: 72rpx;
+  color: var(--color-primary-dark);
+  display: flex;
+  align-items: center;
+  font-size: 28rpx;
+  font-weight: 650;
+}
+
+.quota-card {
+  margin-top: 22rpx;
+  padding: 26rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quota-card__label {
+  font-size: 29rpx;
+  font-weight: 650;
+}
+
+.quota-card__value {
+  color: var(--color-primary-dark);
+  font-size: 48rpx;
+  font-weight: 750;
+}
+
+.settings-save {
+  width: 100%;
+  margin-top: 28rpx;
+}
+
+.quota-grant {
+  width: 100%;
+  margin-top: 16rpx;
 }
 
 .version-text {
-  margin-top: 46rpx;
+  margin-top: 42rpx;
   color: var(--color-text-muted);
   text-align: center;
   font-size: 23rpx;

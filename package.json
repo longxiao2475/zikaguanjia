@@ -4,5 +4,8 @@
   "private": true,
   "scripts": {
     "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "pinyin-pro": "^3.28.2"
   }
 }

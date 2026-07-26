@@ -38,7 +38,7 @@
   <view wx:elif="{{items.length}}" class="card-list">
     <view class="word-card surface-card" wx:for="{{items}}" wx:key="_id">
       <view class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
-      <view class="word-card__main">
+      <view class="word-card__main" data-id="{{item._id}}" bindtap="onOpenWordSheet">
         <view class="word-card__topline">
           <view class="word-card__content">{{item.content}}</view>
           <view class="word-card__type">{{item.typeLabel}}</view>
@@ -55,4 +55,11 @@
     <view class="empty-state__text">{{selectedFilter === 'all' ? '录入孩子今天新学的字，系统会自动安排复习。' : '切换到“全部”看看其他字卡。'}}</view>
     <button wx:if="{{selectedFilter === 'all'}}" class="primary-button library-empty__button" bindtap="onAddCard">录入第一个字</button>
   </view>
+
+  <word-sheet
+    visible="{{showWordSheet}}"
+    card="{{wordSheetCard}}"
+    bindclose="onCloseWordSheet"
+    bindsavecustomword="onSaveCustomWord"
+  />
 </view>

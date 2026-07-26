@@ -18,6 +18,14 @@
     <view class="study-banner__action">去复习</view>
   </view>
 
+  <view wx:if="{{showQuotaBanner}}" class="quota-banner surface-card">
+    <view>
+      <view class="quota-banner__title">提醒次数不足</view>
+      <view class="quota-banner__text">当前剩余 {{subscriptionQuota}} 次，补充后认字日才能继续主动提醒。</view>
+    </view>
+    <button class="quota-banner__action" bindtap="onRequestReminderQuota" loading="{{subscribing}}">补充</button>
+  </view>
+
   <view class="overview-grid">
     <view class="overview-item surface-card">
       <view class="overview-item__value">{{plan.overview.total}}</view>

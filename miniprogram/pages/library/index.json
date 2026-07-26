@@ -1,5 +1,8 @@
 {
   "navigationBarTitleText": "字卡库",
   "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
+  "backgroundTextStyle": "dark",
+  "usingComponents": {
+    "word-sheet": "/components/word-sheet/index"
+  }
 }

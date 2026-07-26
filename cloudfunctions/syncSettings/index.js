@@ -19,13 +19,14 @@ function errorResult(error) {
 
 exports.main = async (event = {}) => {
   try {
-    if (event.action !== 'bootstrap') {
+    const action = service[event.action];
+    if (!['bootstrap', 'saveSettings'].includes(event.action) || typeof action !== 'function') {
       const error = new Error('不支持的操作');
       error.code = 'ACTION_NOT_SUPPORTED';
       throw error;
     }
     const openid = cloud.getWXContext().OPENID;
-    return { ok: true, data: await service.bootstrap(openid) };
+    return { ok: true, data: await action(openid, event) };
   } catch (error) {
     console.error('syncSettings failed', error);
     return errorResult(error);

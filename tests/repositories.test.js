@@ -70,10 +70,13 @@ test('syncSettings 仓储写入服务端创建和更新时间', async () => {
   const user = await repository.createUser({ openid: 'o1', status: 'active' });
   const child = await repository.createChild({ ownerOpenid: 'o1', status: 'active' });
   const updated = await repository.updateUser(user._id, { defaultChildId: child._id });
+  const updatedChild = await repository.updateChild(child._id, { reminderTime: '19:30' });
 
   assert.equal(user.createdAt, 'SERVER_DATE');
   assert.equal(child.updatedAt, 'SERVER_DATE');
   assert.equal(updated.defaultChildId, child._id);
+  assert.equal(updatedChild.reminderTime, '19:30');
+  assert.equal(updatedChild.updatedAt, 'SERVER_DATE');
 });
 
 test('cardService 仓储只列出活动字卡并写入更新时间', async () => {

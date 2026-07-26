@@ -26,6 +26,7 @@ const cache = require('../miniprogram/utils/cache');
 const { callFunction } = require('../miniprogram/utils/cloud');
 const session = require('../miniprogram/utils/session');
 const cardApi = require('../miniprogram/utils/card');
+const reviewApi = require('../miniprogram/utils/review-api');
 
 test.beforeEach(() => {
   storage.clear();
@@ -83,4 +84,57 @@ test('首页第一页全部列表会覆盖字卡缓存', async () => {
 
   await cardApi.listCards({ childId: 'c1', filter: 'all', page: 1 });
   assert.deepEqual(cache.getCards(), [{ _id: 'a' }]);
+});
+
+test('完成复习后合并返回字卡并废弃今日计划缓存', async () => {
+  cache.setCards([
+    { _id: 'a', proficiency: 'unfamiliar' },
+    { _id: 'b', proficiency: 'normal' },
+  ]);
+  cache.setTodayPlan({ cards: [{ _id: 'a' }] });
+  global.__cloudResponse = {
+    result: {
+      ok: true,
+      data: {
+        session: { _id: 's1' },
+        cards: [{ _id: 'a', proficiency: 'proficient', reviewCount: 1 }],
+      },
+    },
+  };
+
+  const result = await reviewApi.completeReview({
+    childId: 'c1',
+    items: [{ cardId: 'a', proficiency: 'proficient' }],
+  });
+
+  assert.equal(calls[0].name, 'reviewService');
+  assert.deepEqual(calls[0].data, {
+    action: 'complete',
+    childId: 'c1',
+    items: [{ cardId: 'a', proficiency: 'proficient' }],
+  });
+  assert.deepEqual(cache.getCards(), [
+    { _id: 'a', proficiency: 'proficient', reviewCount: 1 },
+    { _id: 'b', proficiency: 'normal' },
+  ]);
+  assert.equal(cache.getTodayPlan(), null);
+  assert.equal(result.session._id, 's1');
+});
+
+test('保存孩子设置后只用云端返回值更新缓存', async () => {
+  cache.setChild({ _id: 'c1', reminderTime: '20:00' });
+  global.__cloudResponse = {
+    result: {
+      ok: true,
+      data: { _id: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false },
+    },
+  };
+
+  const child = await session.saveSettings({
+    childId: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false,
+  });
+
+  assert.equal(calls[0].name, 'syncSettings');
+  assert.equal(calls[0].data.action, 'saveSettings');
+  assert.deepEqual(cache.getChild(), child);
 });

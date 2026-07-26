@@ -1,18 +1,64 @@
 <view class="page-shell review-page">
-  <view class="review-hero">
-    <view class="review-hero__eyebrow">今日计划</view>
-    <view class="review-hero__title">待复习 {{total}} 张字卡</view>
-    <view class="review-hero__text">复习打卡与熟练度标记将在 Day 4 接入。</view>
-  </view>
-
   <view wx:if="{{errorMessage}}" class="error-strip">{{errorMessage}}</view>
 
-  <view wx:if="{{cards.length}}" class="preview-list">
-    <view class="preview-card surface-card" wx:for="{{cards}}" wx:key="_id">
-      <view class="preview-card__word">{{item.content}}</view>
-      <view class="preview-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}}</view>
+  <view wx:if="{{completed}}" class="complete-card surface-card">
+    <view class="complete-card__icon">✓</view>
+    <view class="complete-card__title">今天的复习完成啦</view>
+    <view class="complete-card__text">已完成 {{total}} 张字卡，熟练度和复习次数已保存。</view>
+
+    <view wx:if="{{showSubscribeCard}}" class="subscribe-card">
+      <view class="subscribe-card__title">开启提醒，下次认字日准时通知</view>
+      <view class="subscribe-card__text">微信每授权一次可增加 1 次有效提醒。</view>
+      <button class="primary-button subscribe-card__primary" bindtap="onEnableReminder" loading="{{subscribing}}">开启提醒</button>
+      <button class="text-button subscribe-card__later" bindtap="onDismissReminder">以后再说</button>
     </view>
+
+    <button class="primary-button complete-card__button" bindtap="onBackHome">返回首页</button>
   </view>
+
+  <block wx:elif="{{currentCard}}">
+    <view class="review-progress">
+      <view class="review-progress__line">
+        <text>第 {{currentPosition}} / {{total}} 张</text>
+        <text>已标记 {{completedCount}} 张</text>
+      </view>
+      <view class="review-progress__track">
+        <view class="review-progress__value" style="width: {{progressPercent}}%;"></view>
+      </view>
+    </view>
+
+    <button class="review-card surface-card" bindtap="onOpenWords">
+      <view class="review-card__word">{{currentCard.content}}</view>
+      <view class="review-card__hint">点字查看拼音和组词</view>
+    </button>
+
+    <view class="review-actions">
+      <button
+        class="review-action review-action--unfamiliar"
+        data-proficiency="unfamiliar"
+        bindtap="onMark"
+        disabled="{{submitting}}"
+      >不熟</button>
+      <button
+        class="review-action review-action--normal"
+        data-proficiency="normal"
+        bindtap="onMark"
+        disabled="{{submitting}}"
+      >一般</button>
+      <button
+        class="review-action review-action--proficient"
+        data-proficiency="proficient"
+        bindtap="onMark"
+        disabled="{{submitting}}"
+      >熟练</button>
+    </view>
+
+    <view wx:if="{{submitting}}" class="submission-status">正在保存整轮复习结果</view>
+    <view wx:if="{{submissionError}}" class="submission-error surface-card">
+      <view>{{submissionError}}</view>
+      <button class="secondary-button submission-error__button" bindtap="onRetrySubmit">重新提交</button>
+    </view>
+  </block>
 
   <view wx:elif="{{!loading}}" class="surface-card empty-state">
     <view class="empty-state__title">今天没有待复习字卡</view>
@@ -21,4 +67,11 @@
   </view>
 
   <view wx:else class="surface-card review-loading">正在加载今日计划</view>
+
+  <word-sheet
+    visible="{{showWordSheet}}"
+    card="{{wordSheetCard}}"
+    bindclose="onCloseWords"
+    bindsavecustomword="onSaveCustomWord"
+  />
 </view>

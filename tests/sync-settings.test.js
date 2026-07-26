@@ -34,6 +34,11 @@ function createMemoryRepository(seed = {}) {
       Object.assign(user, updates);
       return user;
     },
+    async updateChild(id, updates) {
+      const child = children.find((item) => item._id === id);
+      Object.assign(child, updates);
+      return child;
+    },
   };
 }
 
@@ -68,4 +73,52 @@ test('重复 bootstrap 复用已存在用户和孩子', async () => {
 test('拒绝空 openid', async () => {
   const service = createSyncSettingsService(createMemoryRepository());
   await assert.rejects(() => service.bootstrap(''), /OPENID_REQUIRED/);
+});
+
+test('saveSettings 标准化昵称、认字日和提醒设置', async () => {
+  const repository = createMemoryRepository({
+    users: [{ _id: 'u1', openid: 'openid-1', defaultChildId: 'c1', subscriptionQuota: 2, status: 'active' }],
+    children: [{ _id: 'c1', ownerOpenid: 'openid-1', name: '', status: 'active' }],
+  });
+  const service = createSyncSettingsService(repository);
+
+  const child = await service.saveSettings('openid-1', {
+    childId: 'c1',
+    name: ' 果果 ',
+    studyDays: [6, 2, 2],
+    reminderTime: '19:30',
+    reminderEnabled: false,
+  });
+
+  assert.equal(child.name, '果果');
+  assert.deepEqual(child.studyDays, [2, 6]);
+  assert.equal(child.reminderTime, '19:30');
+  assert.equal(child.reminderEnabled, false);
+});
+
+test('saveSettings 拒绝空认字日、非法时间、过长昵称和越权孩子', async () => {
+  const repository = createMemoryRepository({
+    children: [{ _id: 'c1', ownerOpenid: 'openid-1', status: 'active' }],
+  });
+  const service = createSyncSettingsService(repository);
+  const valid = {
+    childId: 'c1', name: '', studyDays: [2], reminderTime: '20:00', reminderEnabled: true,
+  };
+
+  await assert.rejects(
+    () => service.saveSettings('openid-1', { ...valid, studyDays: [] }),
+    (error) => error.code === 'STUDY_DAYS_REQUIRED',
+  );
+  await assert.rejects(
+    () => service.saveSettings('openid-1', { ...valid, reminderTime: '25:00' }),
+    (error) => error.code === 'REMINDER_TIME_INVALID',
+  );
+  await assert.rejects(
+    () => service.saveSettings('openid-1', { ...valid, name: '一二三四五六七八九十一二三' }),
+    (error) => error.code === 'CHILD_NAME_TOO_LONG',
+  );
+  await assert.rejects(
+    () => service.saveSettings('other-openid', valid),
+    (error) => error.code === 'CHILD_FORBIDDEN',
+  );
 });

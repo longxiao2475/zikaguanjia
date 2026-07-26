@@ -16,7 +16,15 @@ function getCachedSession() {
   };
 }
 
+async function saveSettings(payload) {
+  const child = await callFunction('syncSettings', { action: 'saveSettings', ...payload });
+  cache.setChild(child);
+  cache.setLastSyncAt(Date.now());
+  return child;
+}
+
 module.exports = {
   bootstrap,
   getCachedSession,
+  saveSettings,
 };
