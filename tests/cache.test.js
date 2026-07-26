@@ -46,3 +46,24 @@ test('清理业务缓存不会删除其他 Storage', () => {
   assert.equal(cache.getUser(), null);
   assert.deepEqual(cache.getCards(), []);
 });
+
+test('字卡库筛选意图只消费一次', () => {
+  cache.setLibraryFilterIntent('due');
+  assert.equal(cache.consumeLibraryFilterIntent(), 'due');
+  assert.equal(cache.consumeLibraryFilterIntent(), null);
+  cache.setLibraryFilterIntent('invalid');
+  assert.equal(cache.consumeLibraryFilterIntent(), null);
+});
+
+test('临时复习队列校验时效并由调用方成功后清除', () => {
+  cache.setManualReviewQueue(['a', 'a', 'b'], 1000);
+  assert.deepEqual(cache.getManualReviewQueue(1000 + 29 * 60 * 1000), {
+    cardIds: ['a', 'b'],
+    createdAt: 1000,
+  });
+  cache.clearManualReviewQueue();
+  assert.equal(cache.getManualReviewQueue(1001), null);
+
+  cache.setManualReviewQueue(['a'], 1000);
+  assert.equal(cache.getManualReviewQueue(1000 + 31 * 60 * 1000), null);
+});
