@@ -168,3 +168,14 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
   assert.equal(libraryWxml.includes('开始复习'), true);
 });
+
+test('设置页完整保留七天选择并移除开发阶段文案', () => {
+  const settingsJs = read('miniprogram/pages/settings/index.js');
+  const settingsWxml = read('miniprogram/pages/settings/index.wxml');
+  const settingsWxss = read('miniprogram/pages/settings/index.wxss');
+  assert.equal((settingsJs.match(/label: '[一二三四五六日]'/g) || []).length, 7);
+  assert.equal(settingsWxml.includes('字卡管家 MVP · Day 5'), false);
+  assert.equal(settingsWxss.includes('grid-template-columns: repeat(7'), false);
+  assert.equal(settingsWxss.includes('display: flex'), true);
+  assert.equal(settingsWxss.includes('flex-wrap: wrap'), true);
+});

@@ -67,5 +67,4 @@
     {{saving ? '保存中' : '保存设置'}}
   </button>
 
-  <view class="version-text">字卡管家 MVP · Day 5</view>
 </view>
