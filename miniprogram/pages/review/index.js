@@ -7,8 +7,8 @@ const {
   buildCompletePayload,
   createReviewState,
   markCurrent,
-  reorderPendingCards,
 } = require('../../utils/review-flow');
+const { reorderPendingCards } = require('../../utils/review-order');
 const { mergeReviewCards } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
 const {
@@ -258,20 +258,26 @@ Page({
 
   onOrderDragStart(event) {
     const index = Number(event.currentTarget.dataset.index);
+    const pendingCount = this._reviewState.cards.length - this._reviewState.results.length;
+    if (!Number.isInteger(index) || index < 0 || index >= pendingCount) {
+      this._orderDraggingIndex = null;
+      this._orderDragY = null;
+      return;
+    }
     this._orderDraggingIndex = index;
     this._orderDragY = index * this.getOrderRowPitchPx();
   },
 
   onOrderDragChange(event) {
-    const index = Number(event.currentTarget.dataset.index);
-    if (event.detail.source !== 'touch' || index !== this._orderDraggingIndex) return;
+    if (event.detail.source !== 'touch' || !Number.isInteger(this._orderDraggingIndex)) return;
     this._orderDragY = Number(event.detail.y) || 0;
   },
 
   onOrderDragEnd(event) {
-    const fromIndex = this._orderDraggingIndex === null
-      ? Number(event.currentTarget.dataset.index)
-      : this._orderDraggingIndex;
+    const eventIndex = Number(event.currentTarget.dataset.index);
+    const fromIndex = Number.isInteger(this._orderDraggingIndex)
+      ? this._orderDraggingIndex
+      : eventIndex;
     const pendingCount = this._reviewState.cards.length - this._reviewState.results.length;
     const rawTarget = Math.round((Number(this._orderDragY) || 0) / this.getOrderRowPitchPx());
     const toIndex = Math.max(0, Math.min(pendingCount - 1, rawTarget));
@@ -281,6 +287,13 @@ Page({
       this._reviewState = reorderPendingCards(this._reviewState, fromIndex, toIndex);
       this.applyReviewState();
     } catch (error) {
+      console.error('[review-order] reorder failed', {
+        message: error && error.message,
+        stack: error && error.stack,
+        fromIndex,
+        toIndex,
+        pendingCount,
+      });
       this.setData(this.getPendingOrderData(this._reviewState));
       wx.showToast({ title: '顺序调整失败，请重试', icon: 'none' });
     }

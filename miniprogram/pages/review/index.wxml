@@ -148,15 +148,19 @@
           damping="30"
           friction="2"
           out-of-bounds="{{false}}"
-          data-index="{{index}}"
-          bindtouchstart="onOrderDragStart"
           bindchange="onOrderDragChange"
-          bindtouchend="onOrderDragEnd"
         >
-          <view class="order-sheet__number">{{item.orderNumber}}</view>
-          <view class="order-sheet__content">{{item.content}}</view>
-          <view class="order-sheet__meta">{{index === 0 ? '下一张' : '待复习'}}</view>
-          <view class="order-sheet__grip">☰</view>
+          <view
+            class="order-sheet__item-content"
+            data-index="{{index}}"
+            bindtouchstart="onOrderDragStart"
+            bindtouchend="onOrderDragEnd"
+          >
+            <view class="order-sheet__number">{{item.orderNumber}}</view>
+            <view class="order-sheet__content">{{item.content}}</view>
+            <view class="order-sheet__meta">{{index === 0 ? '下一张' : '待复习'}}</view>
+            <view class="order-sheet__grip">☰</view>
+          </view>
         </movable-view>
       </movable-area>
     </view>

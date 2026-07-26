@@ -120,6 +120,29 @@ test('排序弹层只列出未完成字卡，拖拽后当前卡跟随新顺序',
   assert.deepEqual(context.data.pendingOrderItems.map((item) => item._id), ['c', 'b']);
 });
 
+test('原生 movable-view 事件缺少 dataset 时仍按已记录的起点完成拖拽', () => {
+  const definition = loadReviewPage();
+  const context = createContext(definition);
+  definition.applyPlan.call(context, {
+    cards: [
+      { _id: 'a', content: '大' },
+      { _id: 'b', content: '人' },
+      { _id: 'c', content: '小' },
+    ],
+  });
+  definition.onOpenOrderSheet.call(context);
+
+  definition.onOrderDragStart.call(context, { currentTarget: { dataset: { index: 1 } } });
+  definition.onOrderDragChange.call(context, {
+    currentTarget: { dataset: {} },
+    detail: { source: 'touch', y: 0 },
+  });
+  definition.onOrderDragEnd.call(context, { currentTarget: { dataset: {} } });
+
+  assert.deepEqual(context._reviewState.cards.map((card) => card._id), ['b', 'a', 'c']);
+  assert.equal(context._reviewState.currentCard._id, 'b');
+});
+
 test('复习详情保存补充组词后同步当前卡和详情', async () => {
   let payload;
   const originalCard = { _id: 'card-1', content: '礼物', customWords: [] };

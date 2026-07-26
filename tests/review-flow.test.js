@@ -5,8 +5,8 @@ const {
   buildCompletePayload,
   createReviewState,
   markCurrent,
-  reorderPendingCards,
 } = require('../miniprogram/utils/review-flow');
+const { reorderPendingCards } = require('../miniprogram/utils/review-order');
 
 test('标记后自动前进，最后一张生成一次完整提交 payload', () => {
   let state = createReviewState([

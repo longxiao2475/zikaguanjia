@@ -77,6 +77,15 @@ test('复习页和字卡库内联字卡详情且不再依赖 word-sheet 组件',
   assert.equal(fs.existsSync(path.join(root, 'miniprogram/components/word-sheet')), false);
 });
 
+test('字典数据使用小程序可加载的 JavaScript 模块', () => {
+  const dictJs = read('miniprogram/utils/dict.js');
+
+  assert.equal(dictJs.includes("require('./dict-data.json')"), false);
+  assert.equal(dictJs.includes("require('./pinyin-data.json')"), false);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/utils/dict-data.js')), true);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/utils/pinyin-data.js')), true);
+});
+
 test('复习页补查并消费临时复习队列', () => {
   const reviewJs = read('miniprogram/pages/review/index.js');
   for (const token of [
@@ -87,6 +96,13 @@ test('复习页补查并消费临时复习队列', () => {
   ]) {
     assert.equal(reviewJs.includes(token), true, `missing ${token}`);
   }
+});
+
+test('复习顺序使用独立模块路径避免小程序旧模块缓存', () => {
+  const reviewJs = read('miniprogram/pages/review/index.js');
+
+  assert.equal(reviewJs.includes("require('../../utils/review-order')"), true);
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/utils/review-order.js')), true);
 });
 
 test('复习完成页和设置页接入订阅额度入口', () => {
@@ -180,11 +196,16 @@ test('内联详情关闭控件和复习拖拽结构齐全', () => {
   const libraryWxml = read('miniprogram/pages/library/index.wxml');
   const reviewWxml = read('miniprogram/pages/review/index.wxml');
   const reviewWxss = read('miniprogram/pages/review/index.wxss');
+  const movableViewTag = reviewWxml.match(/<movable-view[\s\S]*?>/)[0];
   assert.equal(libraryWxml.includes('class="word-detail__close"'), true);
   assert.equal(libraryWxml.includes('<button\n        class="word-detail__close"'), false);
   assert.equal(libraryWxml.includes('cursor-color="#E6704A"'), true);
   assert.equal(reviewWxml.includes('<movable-area'), true);
   assert.equal(reviewWxml.includes('<movable-view'), true);
+  assert.equal(movableViewTag.includes('bindtouchstart='), false);
+  assert.equal(movableViewTag.includes('bindtouchend='), false);
+  assert.equal(reviewWxml.includes('class="order-sheet__item-content"'), true);
+  assert.equal(reviewWxml.includes('bindtouchstart="onOrderDragStart"'), true);
   assert.equal(reviewWxml.includes('bindtouchend="onOrderDragEnd"'), true);
   assert.equal(reviewWxss.includes('.order-sheet__item'), true);
   assert.equal(reviewWxss.includes('width: 88rpx;'), true);

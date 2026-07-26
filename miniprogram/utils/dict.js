@@ -1,5 +1,5 @@
-const dictData = require('./dict-data.json');
-const pinyinData = require('./pinyin-data.json');
+const dictData = require('./dict-data');
+const pinyinData = require('./pinyin-data');
 
 const RECOMMENDED_WORDS = Object.freeze({
   大: ['大小', '大人', '大家'],
