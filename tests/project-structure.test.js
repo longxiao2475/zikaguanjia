@@ -204,10 +204,15 @@ test('内联详情关闭控件和复习拖拽结构齐全', () => {
   assert.equal(reviewWxml.includes('<movable-view'), true);
   assert.equal(movableViewTag.includes('bindtouchstart='), false);
   assert.equal(movableViewTag.includes('bindtouchend='), false);
-  assert.equal(reviewWxml.includes('class="order-sheet__item-content"'), true);
+  assert.equal(reviewWxml.includes('order-sheet__item-content'), true);
   assert.equal(reviewWxml.includes('bindtouchstart="onOrderDragStart"'), true);
   assert.equal(reviewWxml.includes('bindtouchend="onOrderDragEnd"'), true);
+  assert.equal(reviewWxml.includes('animation="{{item.animate}}"'), true);
+  assert.equal(reviewWxml.includes('order-sheet__item--dragging'), true);
+  assert.equal(reviewWxml.includes('order-sheet__item-content--dragging'), true);
   assert.equal(reviewWxss.includes('.order-sheet__item'), true);
+  assert.equal(reviewWxss.includes('transition: transform 160ms ease-out'), true);
+  assert.equal(reviewWxss.includes('z-index: 10'), true);
   assert.equal(reviewWxss.includes('width: 88rpx;'), true);
 });
 

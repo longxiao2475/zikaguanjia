@@ -8,7 +8,11 @@ const {
   createReviewState,
   markCurrent,
 } = require('../../utils/review-flow');
-const { reorderPendingCards } = require('../../utils/review-order');
+const {
+  buildOrderPreviewItems,
+  getOrderPreviewIndex,
+  reorderPendingCards,
+} = require('../../utils/review-order');
 const { mergeReviewCards } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
 const {
@@ -252,6 +256,7 @@ Page({
 
   onCloseOrderSheet() {
     this._orderDraggingIndex = null;
+    this._orderPreviewIndex = null;
     this._orderDragY = null;
     this.setData({ showOrderSheet: false });
   },
@@ -261,16 +266,45 @@ Page({
     const pendingCount = this._reviewState.cards.length - this._reviewState.results.length;
     if (!Number.isInteger(index) || index < 0 || index >= pendingCount) {
       this._orderDraggingIndex = null;
+      this._orderPreviewIndex = null;
       this._orderDragY = null;
+      this.setData(this.getPendingOrderData(this._reviewState));
       return;
     }
+    const rowPitch = this.getOrderRowPitchPx();
     this._orderDraggingIndex = index;
-    this._orderDragY = index * this.getOrderRowPitchPx();
+    this._orderPreviewIndex = index;
+    this._orderDragY = index * rowPitch;
+    this.setData({
+      pendingOrderItems: buildOrderPreviewItems(
+        this.data.pendingOrderItems,
+        index,
+        index,
+        rowPitch,
+      ),
+    });
   },
 
   onOrderDragChange(event) {
     if (event.detail.source !== 'touch' || !Number.isInteger(this._orderDraggingIndex)) return;
-    this._orderDragY = Number(event.detail.y) || 0;
+    const dragY = Number(event.detail.y) || 0;
+    const rowPitch = this.getOrderRowPitchPx();
+    const previewIndex = getOrderPreviewIndex(
+      dragY,
+      rowPitch,
+      this.data.pendingOrderItems.length,
+    );
+    this._orderDragY = dragY;
+    if (previewIndex === this._orderPreviewIndex) return;
+    this._orderPreviewIndex = previewIndex;
+    this.setData({
+      pendingOrderItems: buildOrderPreviewItems(
+        this.data.pendingOrderItems,
+        this._orderDraggingIndex,
+        previewIndex,
+        rowPitch,
+      ),
+    });
   },
 
   onOrderDragEnd(event) {
@@ -279,9 +313,11 @@ Page({
       ? this._orderDraggingIndex
       : eventIndex;
     const pendingCount = this._reviewState.cards.length - this._reviewState.results.length;
-    const rawTarget = Math.round((Number(this._orderDragY) || 0) / this.getOrderRowPitchPx());
-    const toIndex = Math.max(0, Math.min(pendingCount - 1, rawTarget));
+    const toIndex = Number.isInteger(this._orderPreviewIndex)
+      ? this._orderPreviewIndex
+      : getOrderPreviewIndex(this._orderDragY, this.getOrderRowPitchPx(), pendingCount);
     this._orderDraggingIndex = null;
+    this._orderPreviewIndex = null;
     this._orderDragY = null;
     try {
       this._reviewState = reorderPendingCards(this._reviewState, fromIndex, toIndex);

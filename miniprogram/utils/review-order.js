@@ -1,3 +1,34 @@
+function getOrderPreviewIndex(y, rowPitch, itemCount) {
+  if (!Number.isFinite(rowPitch)
+    || rowPitch <= 0
+    || !Number.isInteger(itemCount)
+    || itemCount <= 0) {
+    return 0;
+  }
+  const rawIndex = Math.round((Number(y) || 0) / rowPitch);
+  return Math.max(0, Math.min(itemCount - 1, rawIndex));
+}
+
+function getPreviewY(index, fromIndex, previewIndex, rowPitch) {
+  if (index === fromIndex) return fromIndex * rowPitch;
+  if (fromIndex < previewIndex && index > fromIndex && index <= previewIndex) {
+    return (index - 1) * rowPitch;
+  }
+  if (fromIndex > previewIndex && index >= previewIndex && index < fromIndex) {
+    return (index + 1) * rowPitch;
+  }
+  return index * rowPitch;
+}
+
+function buildOrderPreviewItems(items, fromIndex, previewIndex, rowPitch) {
+  return (items || []).map((item, index) => ({
+    ...item,
+    y: getPreviewY(index, fromIndex, previewIndex, rowPitch),
+    dragging: index === fromIndex,
+    animate: index !== fromIndex,
+  }));
+}
+
 function reorderPendingCards(state, fromIndex, toIndex) {
   if (!state || state.readyToSubmit) throw new Error('REVIEW_ALREADY_COMPLETE');
   const completedCount = Array.isArray(state.results) ? state.results.length : 0;
@@ -27,5 +58,7 @@ function reorderPendingCards(state, fromIndex, toIndex) {
 }
 
 module.exports = {
+  buildOrderPreviewItems,
+  getOrderPreviewIndex,
   reorderPendingCards,
 };

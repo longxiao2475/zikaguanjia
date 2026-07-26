@@ -143,6 +143,96 @@ test('原生 movable-view 事件缺少 dataset 时仍按已记录的起点完成
   assert.equal(context._reviewState.currentCard._id, 'b');
 });
 
+test('跨越新卡位时其他字卡实时让位但真实顺序和序号不变', () => {
+  const definition = loadReviewPage();
+  const context = createContext(definition);
+  definition.applyPlan.call(context, {
+    cards: [
+      { _id: 'a', content: '大' },
+      { _id: 'b', content: '人' },
+      { _id: 'c', content: '小' },
+      { _id: 'd', content: '山' },
+    ],
+  });
+  definition.onOpenOrderSheet.call(context);
+  const rowPitch = definition.getOrderRowPitchPx.call(context);
+
+  definition.onOrderDragStart.call(context, { currentTarget: { dataset: { index: 3 } } });
+  definition.onOrderDragChange.call(context, {
+    detail: { source: 'touch', y: rowPitch },
+  });
+
+  assert.deepEqual(context.data.pendingOrderItems.map((item) => item.y), [
+    0,
+    rowPitch * 2,
+    rowPitch * 3,
+    rowPitch * 3,
+  ]);
+  assert.deepEqual(context._reviewState.cards.map((card) => card._id), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(context.data.pendingOrderItems.map((item) => item.orderNumber), [1, 2, 3, 4]);
+});
+
+test('同一预览卡位内移动不重复 setData', () => {
+  const definition = loadReviewPage();
+  const context = createContext(definition);
+  let setDataCount = 0;
+  const originalSetData = context.setData;
+  context.setData = function trackedSetData(update) {
+    setDataCount += 1;
+    originalSetData.call(this, update);
+  };
+  definition.applyPlan.call(context, {
+    cards: [
+      { _id: 'a', content: '大' },
+      { _id: 'b', content: '人' },
+      { _id: 'c', content: '小' },
+    ],
+  });
+  definition.onOpenOrderSheet.call(context);
+  const rowPitch = definition.getOrderRowPitchPx.call(context);
+  definition.onOrderDragStart.call(context, { currentTarget: { dataset: { index: 2 } } });
+  const countAfterStart = setDataCount;
+
+  definition.onOrderDragChange.call(context, {
+    detail: { source: 'touch', y: rowPitch * 1.1 },
+  });
+  definition.onOrderDragChange.call(context, {
+    detail: { source: 'touch', y: rowPitch * 1.2 },
+  });
+
+  assert.equal(setDataCount, countAfterStart + 1);
+});
+
+test('松手后才提交预览顺序并更新下一张', () => {
+  const definition = loadReviewPage();
+  const context = createContext(definition);
+  definition.applyPlan.call(context, {
+    cards: [
+      { _id: 'a', content: '大' },
+      { _id: 'b', content: '人' },
+      { _id: 'c', content: '小' },
+      { _id: 'd', content: '山' },
+    ],
+  });
+  definition.onOpenOrderSheet.call(context);
+  const rowPitch = definition.getOrderRowPitchPx.call(context);
+
+  definition.onOrderDragStart.call(context, { currentTarget: { dataset: { index: 3 } } });
+  definition.onOrderDragChange.call(context, {
+    detail: { source: 'touch', y: rowPitch },
+  });
+
+  assert.deepEqual(context._reviewState.cards.map((card) => card._id), ['a', 'b', 'c', 'd']);
+  assert.equal(context._reviewState.currentCard._id, 'a');
+
+  definition.onOrderDragEnd.call(context, { currentTarget: { dataset: {} } });
+
+  assert.deepEqual(context._reviewState.cards.map((card) => card._id), ['a', 'd', 'b', 'c']);
+  assert.equal(context._reviewState.currentCard._id, 'a');
+  assert.deepEqual(context.data.pendingOrderItems.map((item) => item._id), ['a', 'd', 'b', 'c']);
+  assert.deepEqual(context.data.pendingOrderItems.map((item) => item.orderNumber), [1, 2, 3, 4]);
+});
+
 test('复习详情保存补充组词后同步当前卡和详情', async () => {
   let payload;
   const originalCard = { _id: 'card-1', content: '礼物', customWords: [] };

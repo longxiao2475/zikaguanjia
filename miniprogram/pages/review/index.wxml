@@ -139,19 +139,20 @@
 
       <movable-area class="order-sheet__area" style="height: {{orderAreaHeight}}px;">
         <movable-view
-          class="order-sheet__item"
+          class="order-sheet__item {{item.dragging ? 'order-sheet__item--dragging' : ''}}"
           wx:for="{{pendingOrderItems}}"
           wx:key="_id"
           direction="vertical"
           x="0"
           y="{{item.y}}"
-          damping="30"
+          animation="{{item.animate}}"
+          damping="40"
           friction="2"
           out-of-bounds="{{false}}"
           bindchange="onOrderDragChange"
         >
           <view
-            class="order-sheet__item-content"
+            class="order-sheet__item-content {{item.dragging ? 'order-sheet__item-content--dragging' : ''}}"
             data-index="{{index}}"
             bindtouchstart="onOrderDragStart"
             bindtouchend="onOrderDragEnd"
