@@ -261,7 +261,7 @@ Expected: 两个命令 exit 0。
 
 确认三个用户需求逐项有实现和测试，运行 `git diff --check`，检查没有意外修改或残留 `word-sheet` 页面引用。
 
-- [x] **Step 4: 提交并推送**
+- [ ] **Step 4: 提交并推送**
 
 ```bash
 git add ai_wiki docs miniprogram tests
