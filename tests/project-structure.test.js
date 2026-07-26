@@ -64,27 +64,17 @@ test('全局样式包含项目语义色和触控尺寸 token', () => {
   }
 });
 
-test('复习页和字卡库的 word-sheet 相对路径可解析', () => {
-  for (const extension of ['js', 'json', 'wxml', 'wxss']) {
-    assert.equal(
-      fs.existsSync(path.join(root, `miniprogram/components/word-sheet/index.${extension}`)),
-      true,
-      `word-sheet/index.${extension} should exist`,
-    );
-  }
-
+test('复习页和字卡库内联字卡详情且不再依赖 word-sheet 组件', () => {
   for (const page of ['review', 'library']) {
     const configPath = `miniprogram/pages/${page}/index.json`;
     const config = JSON.parse(read(configPath));
-    const componentPath = config.usingComponents['word-sheet'];
-    assert.equal(componentPath.startsWith('../../components/'), true);
-    const resolved = path.resolve(
-      root,
-      `miniprogram/pages/${page}`,
-      `${componentPath}.json`,
-    );
-    assert.equal(fs.existsSync(resolved), true, `${page} word-sheet should resolve`);
+    const wxml = read(`miniprogram/pages/${page}/index.wxml`);
+    assert.equal(config.usingComponents && config.usingComponents['word-sheet'], undefined);
+    assert.equal(wxml.includes('<word-sheet'), false);
+    assert.equal(wxml.includes('class="word-detail-mask"'), true);
+    assert.equal(wxml.includes('wordDetail.characters'), true);
   }
+  assert.equal(fs.existsSync(path.join(root, 'miniprogram/components/word-sheet')), false);
 });
 
 test('复习页补查并消费临时复习队列', () => {
@@ -163,6 +153,7 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
     'onClearKeyword',
     'onToggleSelectionMode',
     'onToggleCardSelection',
+    'onCardTap',
     'onStartSelectedReview',
     'onOpenEdit',
     'onSaveEdit',
@@ -171,6 +162,7 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
     assert.equal(libraryJs.includes(token), true, `missing ${token}`);
   }
   assert.equal(libraryWxml.includes('placeholder="搜索字或词"'), true);
+  assert.equal(libraryWxml.includes('bindtap="onCardTap"'), true);
   assert.equal(libraryWxml.includes('word-card__selector-hit'), true);
   assert.equal(libraryWxml.includes('<button\n        wx:if="{{selectionMode}}"\n        class="word-card__selector'), false);
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
@@ -184,13 +176,18 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxss.includes('width: 38rpx;'), true);
 });
 
-test('固定尺寸图标控件不使用会被模拟器拉伸的原生 button', () => {
-  const wordSheetWxml = read('miniprogram/components/word-sheet/index.wxml');
-  const wordSheetWxss = read('miniprogram/components/word-sheet/index.wxss');
-  assert.equal(wordSheetWxml.includes('class="word-sheet__close"'), true);
-  assert.equal(wordSheetWxml.includes('<button class="word-sheet__close"'), false);
-  assert.equal(wordSheetWxml.includes('cursor-color="#E6704A"'), true);
-  assert.equal(wordSheetWxss.includes('width: 88rpx;'), true);
+test('内联详情关闭控件和复习拖拽结构齐全', () => {
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  const reviewWxml = read('miniprogram/pages/review/index.wxml');
+  const reviewWxss = read('miniprogram/pages/review/index.wxss');
+  assert.equal(libraryWxml.includes('class="word-detail__close"'), true);
+  assert.equal(libraryWxml.includes('<button\n        class="word-detail__close"'), false);
+  assert.equal(libraryWxml.includes('cursor-color="#E6704A"'), true);
+  assert.equal(reviewWxml.includes('<movable-area'), true);
+  assert.equal(reviewWxml.includes('<movable-view'), true);
+  assert.equal(reviewWxml.includes('bindtouchend="onOrderDragEnd"'), true);
+  assert.equal(reviewWxss.includes('.order-sheet__item'), true);
+  assert.equal(reviewWxss.includes('width: 88rpx;'), true);
 });
 
 test('Day 6 已移除 QuickStart 云函数残留', () => {

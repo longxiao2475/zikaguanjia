@@ -46,9 +46,12 @@ function createContext(definition, data = {}) {
     ...definition,
     data: {
       items: [],
+      selectionMode: false,
       selectedIds: [],
       selectedCount: 0,
-      wordSheetCard: null,
+      showWordDetail: false,
+      wordDetailCard: null,
+      wordDetail: { content: '', characters: [] },
       showEditSheet: true,
       editingCard: null,
       editContent: '',
@@ -202,4 +205,69 @@ test('编辑保存期间忽略输入和熟练度变更', () => {
 
   assert.equal(context.data.editContent, '大');
   assert.equal(context.data.editProficiency, 'unfamiliar');
+});
+
+test('普通模式点击整行打开按不重复单字拆分的详情', () => {
+  const definition = loadLibraryPage();
+  const card = { _id: 'card-1', content: '礼物礼', customWords: ['礼貌'] };
+  const context = createContext(definition, { items: [card] });
+
+  definition.onCardTap.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+
+  assert.equal(context.data.showWordDetail, true);
+  assert.equal(context.data.wordDetailCard, card);
+  assert.deepEqual(context.data.wordDetail.characters.map((item) => item.character), ['礼', '物']);
+  assert.equal(context.data.wordDetail.characters[0].pinyin, 'lǐ');
+  assert.equal(context.data.wordDetail.characters[1].pinyin, 'wù');
+});
+
+test('选择模式点击整行只切换选择，不打开详情', () => {
+  const definition = loadLibraryPage();
+  const card = { _id: 'card-1', content: '礼物', customWords: [] };
+  const context = createContext(definition, { items: [card], selectionMode: true });
+  const event = { currentTarget: { dataset: { id: 'card-1' } } };
+
+  definition.onCardTap.call(context, event);
+  assert.deepEqual(context.data.selectedIds, ['card-1']);
+  assert.equal(context.data.items[0].selected, true);
+  assert.equal(context.data.showWordDetail, false);
+
+  definition.onCardTap.call(context, event);
+  assert.deepEqual(context.data.selectedIds, []);
+  assert.equal(context.data.items[0].selected, false);
+});
+
+test('详情中按目标单字校验并保存补充组词', async () => {
+  let payload;
+  const card = { _id: 'card-1', content: '礼物', customWords: [] };
+  const definition = loadLibraryPage({
+    cardApi: {
+      updateCard: async (value) => {
+        payload = value;
+        return { ...card, customWords: value.customWords };
+      },
+    },
+  });
+  const context = createContext(definition, { items: [card] });
+  definition.onCardTap.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+  definition.onDetailWordInput.call(context, {
+    currentTarget: { dataset: { index: 0 } },
+    detail: { value: '礼貌' },
+  });
+  definition.onDetailWordInput.call(context, {
+    currentTarget: { dataset: { index: 1 } },
+    detail: { value: '物体草稿' },
+  });
+
+  await definition.onSaveDetailWord.call(context, { currentTarget: { dataset: { index: 0 } } });
+
+  assert.deepEqual(payload, {
+    childId: 'child-1',
+    cardId: 'card-1',
+    customWords: ['礼貌'],
+  });
+  assert.deepEqual(context.data.items[0].customWords, ['礼貌']);
+  assert.equal(context.data.wordDetail.characters[0].words.includes('礼貌'), true);
+  assert.equal(context.data.wordDetail.characters[0].inputValue, '');
+  assert.equal(context.data.wordDetail.characters[1].inputValue, '物体草稿');
 });

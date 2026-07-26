@@ -56,20 +56,25 @@
   </view>
 
   <view wx:elif="{{items.length}}" class="card-list">
-    <view class="word-card surface-card" wx:for="{{items}}" wx:key="_id">
+    <view
+      class="word-card surface-card {{selectionMode && item.selected ? 'word-card--selected' : ''}}"
+      wx:for="{{items}}"
+      wx:key="_id"
+      data-id="{{item._id}}"
+      bindtap="onCardTap"
+      hover-class="word-card--pressed"
+      aria-role="{{selectionMode ? 'checkbox' : 'button'}}"
+      aria-checked="{{selectionMode ? item.selected : false}}"
+      aria-label="{{selectionMode ? (item.selected ? '取消选择' : '选择') : '查看'}}{{item.content}}"
+    >
       <view
         wx:if="{{selectionMode}}"
         class="word-card__selector-hit"
-        data-id="{{item._id}}"
-        bindtap="onToggleCardSelection"
-        aria-label="{{item.selected ? '取消选择' : '选择'}}{{item.content}}"
-        aria-role="checkbox"
-        aria-checked="{{item.selected}}"
       >
         <view class="word-card__selector {{item.selected ? 'word-card__selector--selected' : ''}}">{{item.selected ? '✓' : ''}}</view>
       </view>
       <view wx:else class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
-      <view class="word-card__main" data-id="{{item._id}}" bindtap="onOpenWordSheet">
+      <view class="word-card__main">
         <view class="word-card__topline">
           <view class="word-card__content">{{item.content}}</view>
           <view class="word-card__type">{{item.typeLabel}}</view>
@@ -106,12 +111,54 @@
     >开始复习</button>
   </view>
 
-  <word-sheet
-    visible="{{showWordSheet}}"
-    card="{{wordSheetCard}}"
-    bindclose="onCloseWordSheet"
-    bindsavecustomword="onSaveCustomWord"
-  />
+  <view wx:if="{{showWordDetail}}" class="word-detail-mask" bindtap="onCloseWordDetail">
+    <scroll-view class="word-detail-sheet" scroll-y enhanced show-scrollbar="{{false}}" catchtap="swallow">
+      <view class="word-detail__handle"></view>
+      <view
+        class="word-detail__close"
+        bindtap="onCloseWordDetail"
+        hover-class="word-detail__close--pressed"
+        aria-role="button"
+        aria-label="关闭字卡详情"
+      >×</view>
+
+      <view class="word-detail__title">“{{wordDetail.content}}”的单字详情</view>
+      <view class="word-detail__helper">每个不重复的字分别显示拼音和组词</view>
+
+      <view class="word-detail__group" wx:for="{{wordDetail.characters}}" wx:for-index="characterIndex" wx:key="character">
+        <view class="word-detail__character-row">
+          <view class="word-detail__character">{{item.character}}</view>
+          <view wx:if="{{item.pinyin}}" class="word-detail__pinyin">{{item.pinyin}}</view>
+        </view>
+
+        <view class="word-detail__section-title">“{{item.character}}”的常用组词</view>
+        <view wx:if="{{item.words.length}}" class="word-detail__tags">
+          <view class="word-detail__tag" wx:for="{{item.words}}" wx:for-item="word" wx:key="*this">{{word}}</view>
+        </view>
+        <view wx:else class="word-detail__empty">暂时没有组词，可以在下方补充。</view>
+
+        <view class="word-detail__input-row">
+          <input
+            class="word-detail__input"
+            maxlength="12"
+            placeholder="例如：包含“{{item.character}}”的词"
+            value="{{item.inputValue}}"
+            data-index="{{characterIndex}}"
+            bindinput="onDetailWordInput"
+            disabled="{{wordDetailSaving}}"
+            cursor-color="#E6704A"
+          />
+          <button
+            class="word-detail__save"
+            data-index="{{characterIndex}}"
+            bindtap="onSaveDetailWord"
+            loading="{{wordDetailSaving}}"
+            disabled="{{wordDetailSaving}}"
+          >添加</button>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
 
   <view wx:if="{{showEditSheet}}" class="edit-sheet-mask" bindtap="onCloseEdit">
     <view class="edit-sheet" catchtap="swallow">

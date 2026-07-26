@@ -7,9 +7,18 @@ const {
   buildCompletePayload,
   createReviewState,
   markCurrent,
+  reorderPendingCards,
 } = require('../../utils/review-flow');
 const { mergeReviewCards } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
+const {
+  getWordDetail,
+  mergeWordDetailInputs,
+  uniqueWords,
+  validateCustomWord,
+} = require('../../utils/dict');
+
+const ORDER_ROW_PITCH_RPX = 124;
 
 Page({
   data: {
@@ -26,8 +35,14 @@ Page({
     completed: false,
     showSubscribeCard: true,
     subscribing: false,
-    showWordSheet: false,
-    wordSheetCard: null,
+    showWordDetail: false,
+    wordDetailCard: null,
+    wordDetail: getWordDetail(),
+    wordDetailSaving: false,
+    canReorder: false,
+    showOrderSheet: false,
+    pendingOrderItems: [],
+    orderAreaHeight: 0,
   },
 
   onLoad(options = {}) {
@@ -46,14 +61,45 @@ Page({
   applyReviewState() {
     const state = this._reviewState || createReviewState([]);
     const total = state.cards.length;
-    this.setData({
+    const update = {
       cards: state.cards,
       total,
       currentCard: state.currentCard ? decorateCard(state.currentCard) : null,
       currentPosition: total ? Math.min(state.results.length + 1, total) : 0,
       completedCount: state.results.length,
       progressPercent: state.progressPercent,
-    });
+      canReorder: state.cards.length - state.results.length > 1,
+    };
+    if (this.data.showOrderSheet) {
+      Object.assign(update, this.getPendingOrderData(state));
+    }
+    this.setData(update);
+  },
+
+  getOrderRowPitchPx() {
+    if (this._orderRowPitchPx) return this._orderRowPitchPx;
+    let windowWidth = 375;
+    if (typeof wx.getWindowInfo === 'function') {
+      windowWidth = wx.getWindowInfo().windowWidth || windowWidth;
+    } else if (typeof wx.getSystemInfoSync === 'function') {
+      windowWidth = wx.getSystemInfoSync().windowWidth || windowWidth;
+    }
+    this._orderRowPitchPx = ORDER_ROW_PITCH_RPX * windowWidth / 750;
+    return this._orderRowPitchPx;
+  },
+
+  getPendingOrderData(state = this._reviewState || createReviewState([])) {
+    const completedCount = state.results.length;
+    const rowPitch = this.getOrderRowPitchPx();
+    const pendingOrderItems = state.cards.slice(completedCount).map((card, index) => ({
+      ...decorateCard(card),
+      y: index * rowPitch,
+      orderNumber: completedCount + index + 1,
+    }));
+    return {
+      pendingOrderItems,
+      orderAreaHeight: pendingOrderItems.length * rowPitch,
+    };
   },
 
   async loadPlan() {
@@ -121,22 +167,51 @@ Page({
 
   onOpenWords() {
     if (!this.data.currentCard) return;
-    this.setData({ showWordSheet: true, wordSheetCard: this.data.currentCard });
+    this.setData({
+      showWordDetail: true,
+      wordDetailCard: this.data.currentCard,
+      wordDetail: getWordDetail(this.data.currentCard),
+    });
   },
 
   onCloseWords() {
-    this.setData({ showWordSheet: false });
+    if (this.data.wordDetailSaving) return;
+    this.setData({ showWordDetail: false });
   },
 
-  async onSaveCustomWord(event) {
-    const detail = event.detail || {};
+  swallow() {},
+
+  onDetailWordInput(event) {
+    if (this.data.wordDetailSaving) return;
+    const targetIndex = Number(event.currentTarget.dataset.index);
+    const characters = (this.data.wordDetail.characters || []).map((item, index) => (
+      index === targetIndex ? { ...item, inputValue: event.detail.value } : item
+    ));
+    this.setData({ wordDetail: { ...this.data.wordDetail, characters } });
+  },
+
+  async onSaveDetailWord(event) {
+    if (this.data.wordDetailSaving || !this.data.wordDetailCard) return;
+    const targetIndex = Number(event.currentTarget.dataset.index);
+    const characterDetail = (this.data.wordDetail.characters || [])[targetIndex];
+    if (!characterDetail) return;
+    const validation = validateCustomWord(characterDetail.character, characterDetail.inputValue);
+    if (!validation.ok) {
+      wx.showToast({ title: validation.message, icon: 'none' });
+      return;
+    }
+    const customWords = uniqueWords([
+      ...(this.data.wordDetailCard.customWords || []),
+      validation.word,
+    ]);
+    this.setData({ wordDetailSaving: true });
     try {
       let { child } = session.getCachedSession();
       if (!child) ({ child } = await session.bootstrap());
       const updated = await cardApi.updateCard({
         childId: child._id,
-        cardId: detail.cardId,
-        customWords: detail.customWords,
+        cardId: this.data.wordDetailCard._id,
+        customWords,
       });
       if (this._reviewState) {
         this._reviewState = {
@@ -148,10 +223,66 @@ Page({
         };
         this.applyReviewState();
       }
-      this.setData({ wordSheetCard: updated });
+      this.setData({
+        wordDetailCard: updated,
+        wordDetail: mergeWordDetailInputs(
+          this.data.wordDetail,
+          getWordDetail(updated),
+          characterDetail.character,
+        ),
+      });
       wx.showToast({ title: '已添加组词', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '组词保存失败', icon: 'none' });
+    } finally {
+      this.setData({ wordDetailSaving: false });
+    }
+  },
+
+  onOpenOrderSheet() {
+    if (!this._reviewState || this._reviewState.cards.length - this._reviewState.results.length < 2) {
+      wx.showToast({ title: '当前没有可调整的后续字卡', icon: 'none' });
+      return;
+    }
+    this.setData({
+      showOrderSheet: true,
+      ...this.getPendingOrderData(this._reviewState),
+    });
+  },
+
+  onCloseOrderSheet() {
+    this._orderDraggingIndex = null;
+    this._orderDragY = null;
+    this.setData({ showOrderSheet: false });
+  },
+
+  onOrderDragStart(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    this._orderDraggingIndex = index;
+    this._orderDragY = index * this.getOrderRowPitchPx();
+  },
+
+  onOrderDragChange(event) {
+    const index = Number(event.currentTarget.dataset.index);
+    if (event.detail.source !== 'touch' || index !== this._orderDraggingIndex) return;
+    this._orderDragY = Number(event.detail.y) || 0;
+  },
+
+  onOrderDragEnd(event) {
+    const fromIndex = this._orderDraggingIndex === null
+      ? Number(event.currentTarget.dataset.index)
+      : this._orderDraggingIndex;
+    const pendingCount = this._reviewState.cards.length - this._reviewState.results.length;
+    const rawTarget = Math.round((Number(this._orderDragY) || 0) / this.getOrderRowPitchPx());
+    const toIndex = Math.max(0, Math.min(pendingCount - 1, rawTarget));
+    this._orderDraggingIndex = null;
+    this._orderDragY = null;
+    try {
+      this._reviewState = reorderPendingCards(this._reviewState, fromIndex, toIndex);
+      this.applyReviewState();
+    } catch (error) {
+      this.setData(this.getPendingOrderData(this._reviewState));
+      wx.showToast({ title: '顺序调整失败，请重试', icon: 'none' });
     }
   },
 

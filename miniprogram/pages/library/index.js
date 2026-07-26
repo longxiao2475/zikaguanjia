@@ -4,6 +4,12 @@ const session = require('../../utils/session');
 const { toggleSelectedId } = require('../../utils/review-queue');
 const { isDue } = require('../../utils/review');
 const { decorateCard } = require('../../utils/view');
+const {
+  getWordDetail,
+  mergeWordDetailInputs,
+  uniqueWords,
+  validateCustomWord,
+} = require('../../utils/dict');
 
 const TAB_DEFINITIONS = [
   { value: 'all', label: '全部' },
@@ -61,8 +67,10 @@ Page({
     selectionMode: false,
     selectedIds: [],
     selectedCount: 0,
-    showWordSheet: false,
-    wordSheetCard: null,
+    showWordDetail: false,
+    wordDetailCard: null,
+    wordDetail: getWordDetail(),
+    wordDetailSaving: false,
     showEditSheet: false,
     editingCard: null,
     editContent: '',
@@ -191,8 +199,7 @@ Page({
     });
   },
 
-  onToggleCardSelection(event) {
-    const targetId = event.currentTarget.dataset.id;
+  toggleCardSelection(targetId) {
     if (!this.data.selectedIds.includes(targetId) && this.data.selectedIds.length >= 50) {
       wx.showToast({ title: '一次最多选择 50 张', icon: 'none' });
       return;
@@ -208,6 +215,25 @@ Page({
     });
   },
 
+  onToggleCardSelection(event) {
+    this.toggleCardSelection(event.currentTarget.dataset.id);
+  },
+
+  onCardTap(event) {
+    const cardId = event.currentTarget.dataset.id;
+    if (this.data.selectionMode) {
+      this.toggleCardSelection(cardId);
+      return;
+    }
+    const card = this.data.items.find((item) => item._id === cardId);
+    if (!card) return;
+    this.setData({
+      showWordDetail: true,
+      wordDetailCard: card,
+      wordDetail: getWordDetail(card),
+    });
+  },
+
   onStartSelectedReview() {
     if (!this.data.selectedIds.length) return;
     cache.setManualReviewQueue(this.data.selectedIds);
@@ -217,12 +243,6 @@ Page({
 
   onAddCard() {
     wx.navigateTo({ url: '/pages/add/index' });
-  },
-
-  onOpenWordSheet(event) {
-    const cardId = event.currentTarget.dataset.id;
-    const card = this.data.items.find((item) => item._id === cardId);
-    if (card) this.setData({ showWordSheet: true, wordSheetCard: card });
   },
 
   onOpenEdit(event) {
@@ -281,9 +301,12 @@ Page({
           : this.data.items.filter((item) => item._id !== updated._id),
         totalResults: remainsVisible ? this.data.totalResults : Math.max(0, this.data.totalResults - 1),
         tabs: updateTabCounts(this.data.tabs, editingCard, updated),
-        wordSheetCard: this.data.wordSheetCard && this.data.wordSheetCard._id === updated._id
+        wordDetailCard: this.data.wordDetailCard && this.data.wordDetailCard._id === updated._id
           ? updated
-          : this.data.wordSheetCard,
+          : this.data.wordDetailCard,
+        wordDetail: this.data.wordDetailCard && this.data.wordDetailCard._id === updated._id
+          ? getWordDetail(updated)
+          : this.data.wordDetail,
         showEditSheet: false,
         editingCard: null,
       });
@@ -333,28 +356,60 @@ Page({
     });
   },
 
-  onCloseWordSheet() {
-    this.setData({ showWordSheet: false });
+  onCloseWordDetail() {
+    if (this.data.wordDetailSaving) return;
+    this.setData({ showWordDetail: false });
   },
 
   swallow() {},
 
-  async onSaveCustomWord(event) {
-    const detail = event.detail || {};
+  onDetailWordInput(event) {
+    if (this.data.wordDetailSaving) return;
+    const targetIndex = Number(event.currentTarget.dataset.index);
+    const characters = (this.data.wordDetail.characters || []).map((item, index) => (
+      index === targetIndex ? { ...item, inputValue: event.detail.value } : item
+    ));
+    this.setData({
+      wordDetail: { ...this.data.wordDetail, characters },
+    });
+  },
+
+  async onSaveDetailWord(event) {
+    if (this.data.wordDetailSaving || !this.data.wordDetailCard) return;
+    const targetIndex = Number(event.currentTarget.dataset.index);
+    const characterDetail = (this.data.wordDetail.characters || [])[targetIndex];
+    if (!characterDetail) return;
+    const validation = validateCustomWord(characterDetail.character, characterDetail.inputValue);
+    if (!validation.ok) {
+      wx.showToast({ title: validation.message, icon: 'none' });
+      return;
+    }
+    const customWords = uniqueWords([
+      ...(this.data.wordDetailCard.customWords || []),
+      validation.word,
+    ]);
+    this.setData({ wordDetailSaving: true });
     try {
       const child = await this.ensureChild();
       const updated = decorateCard(await cardApi.updateCard({
         childId: child._id,
-        cardId: detail.cardId,
-        customWords: detail.customWords,
+        cardId: this.data.wordDetailCard._id,
+        customWords,
       }));
       this.setData({
         items: this.data.items.map((item) => (item._id === updated._id ? updated : item)),
-        wordSheetCard: updated,
+        wordDetailCard: updated,
+        wordDetail: mergeWordDetailInputs(
+          this.data.wordDetail,
+          getWordDetail(updated),
+          characterDetail.character,
+        ),
       });
       wx.showToast({ title: '已添加组词', icon: 'success' });
     } catch (error) {
       wx.showToast({ title: error.message || '组词保存失败', icon: 'none' });
+    } finally {
+      this.setData({ wordDetailSaving: false });
     }
   },
 });

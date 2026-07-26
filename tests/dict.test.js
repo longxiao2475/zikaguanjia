@@ -32,16 +32,31 @@ test('自定义组词执行标准化和输入约束', () => {
   assert.equal(validateCustomWord('大', '大一二三四五六七八九十一二').code, 'CUSTOM_WORD_TOO_LONG');
 });
 
-test('词语字卡逐字展示拼音，不查询单字组词但保留自定义相关词', () => {
-  assert.deepEqual(getWordDetail({ content: '大小', customWords: ['大小不同'] }), {
-    content: '大小',
-    pinyin: 'dà xiǎo',
-    words: ['大小不同'],
-    customWords: ['大小不同'],
-    dictionaryWords: [],
-  });
+test('词语字卡按原顺序展示不重复单字的拼音和各自组词', () => {
+  const detail = getWordDetail({ content: '礼物礼', customWords: ['礼物盒', '物品', '礼物盒'] });
+
+  assert.equal(detail.content, '礼物礼');
+  assert.deepEqual(detail.characters.map((item) => item.character), ['礼', '物']);
+  assert.equal(detail.characters[0].pinyin, 'lǐ');
+  assert.equal(detail.characters[1].pinyin, 'wù');
+  assert.equal(detail.characters[0].words.includes('礼貌'), true);
+  assert.equal(detail.characters[1].words.includes('物品'), true);
+  assert.equal(detail.characters[0].words.filter((word) => word === '礼物盒').length, 1);
+  assert.equal(detail.characters[1].words.filter((word) => word === '礼物盒').length, 1);
 });
 
-test('常见词语可从本地静态表拼出完整拼音', () => {
-  assert.equal(getWordDetail({ content: '礼物' }).pinyin, 'lǐ wù');
+test('重复字卡只生成一个单字分组', () => {
+  const detail = getWordDetail({ content: '妈妈', customWords: ['妈妈'] });
+
+  assert.deepEqual(detail.characters.map((item) => item.character), ['妈']);
+  assert.equal(detail.characters[0].pinyin, 'mā');
+  assert.equal(detail.characters[0].words.includes('妈妈'), true);
+});
+
+test('单字分组忽略字母标点和 emoji，只保留汉字', () => {
+  assert.deepEqual(
+    getWordDetail({ content: 'A大·小😀大' }).characters.map((item) => item.character),
+    ['大', '小'],
+  );
+  assert.deepEqual(getWordDetail({ content: 'ABC·😀' }).characters, []);
 });

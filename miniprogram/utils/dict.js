@@ -14,6 +14,21 @@ function uniqueWords(words) {
   return [...new Set((words || []).map(normalizeWord).filter(Boolean))];
 }
 
+function isHanCharacter(character) {
+  const codePoint = character && character.codePointAt(0);
+  return Number.isInteger(codePoint) && (
+    (codePoint >= 0x3400 && codePoint <= 0x4DBF)
+    || (codePoint >= 0x4E00 && codePoint <= 0x9FFF)
+    || (codePoint >= 0xF900 && codePoint <= 0xFAFF)
+    || (codePoint >= 0x20000 && codePoint <= 0x2EBEF)
+    || (codePoint >= 0x30000 && codePoint <= 0x3134F)
+  );
+}
+
+function uniqueCharacters(content) {
+  return [...new Set(Array.from(normalizeWord(content)).filter(isHanCharacter))];
+}
+
 function getDictionaryWords(content) {
   const normalizedContent = normalizeWord(content);
   if (Array.from(normalizedContent).length !== 1) return [];
@@ -56,6 +71,19 @@ function validateCustomWord(content, input) {
   return { ok: true, word };
 }
 
+function getCharacterDetail(character, customWords) {
+  const matchingCustomWords = uniqueWords(customWords).filter((word) => word.includes(character));
+  const dictionaryWords = getDictionaryWords(character);
+  return {
+    character,
+    pinyin: getPinyin(character),
+    words: uniqueWords([...matchingCustomWords, ...dictionaryWords]),
+    customWords: matchingCustomWords,
+    dictionaryWords,
+    inputValue: '',
+  };
+}
+
 function getWordDetail(card = {}) {
   const content = normalizeWord(card.content);
   const customWords = uniqueWords(card.customWords);
@@ -66,6 +94,23 @@ function getWordDetail(card = {}) {
     words: uniqueWords([...customWords, ...dictionaryWords]),
     customWords,
     dictionaryWords,
+    characters: uniqueCharacters(content).map((character) => getCharacterDetail(character, customWords)),
+  };
+}
+
+function mergeWordDetailInputs(previousDetail, nextDetail, clearedCharacter) {
+  const previousInputs = new Map(
+    ((previousDetail && previousDetail.characters) || [])
+      .map((item) => [item.character, item.inputValue || '']),
+  );
+  return {
+    ...nextDetail,
+    characters: (nextDetail.characters || []).map((item) => ({
+      ...item,
+      inputValue: item.character === clearedCharacter
+        ? ''
+        : previousInputs.get(item.character) || '',
+    })),
   };
 }
 
@@ -74,8 +119,11 @@ module.exports = {
   getDictionaryWords,
   getPinyin,
   getWordDetail,
+  isHanCharacter,
+  mergeWordDetailInputs,
   mergeWords,
   normalizeWord,
+  uniqueCharacters,
   uniqueWords,
   validateCustomWord,
 };
