@@ -1,0 +1,44 @@
+<view wx:if="{{visible}}" class="category-picker-mask" bindtap="onClose">
+  <view class="category-picker" catchtap="swallow">
+    <view class="category-picker__handle"></view>
+    <view class="category-picker__header">
+      <button class="category-picker__header-button" bindtap="onClose" disabled="{{disabled}}">取消</button>
+      <view class="category-picker__title">{{managing ? '管理分类' : title}}</view>
+      <button wx:if="{{managing}}" class="category-picker__header-button category-picker__header-button--primary" bindtap="onToggleManage" disabled="{{disabled}}">完成</button>
+      <button wx:else class="category-picker__header-button category-picker__header-button--primary" bindtap="onConfirm" disabled="{{disabled}}">确定</button>
+    </view>
+
+    <view wx:if="{{!managing}}">
+      <view class="category-picker__chips">
+        <button
+          wx:if="{{showUncategorized}}"
+          class="category-picker__chip {{selectedIds.indexOf(uncategorizedId) >= 0 || (!filterMode && selectedIds.length === 0) ? 'category-picker__chip--selected' : ''}}"
+          data-id="{{uncategorizedId}}"
+          bindtap="onToggleCategory"
+          disabled="{{disabled}}"
+        >未分类</button>
+        <button
+          wx:for="{{categories}}"
+          wx:key="_id"
+          class="category-picker__chip {{selectedIds.indexOf(item._id) >= 0 ? 'category-picker__chip--selected' : ''}}"
+          data-id="{{item._id}}"
+          bindtap="onToggleCategory"
+          disabled="{{disabled}}"
+        >{{item.name}}</button>
+      </view>
+      <view wx:if="{{!categories.length}}" class="category-picker__empty">还没有可用分类，可以先新增一个。</view>
+      <view class="category-picker__footer">
+        <button class="category-picker__manage" bindtap="onToggleManage" disabled="{{disabled}}">管理分类</button>
+        <button wx:if="{{filterMode}}" class="category-picker__clear" bindtap="onClear" disabled="{{disabled}}">清空筛选</button>
+      </view>
+    </view>
+
+    <view wx:else class="category-picker__manage-list">
+      <view class="category-picker__manage-row" wx:for="{{categories}}" wx:key="_id">
+        <view class="category-picker__manage-name">{{item.name}}</view>
+        <button class="category-picker__rename" data-id="{{item._id}}" bindtap="onRenameCategory" disabled="{{disabled}}">改名</button>
+      </view>
+      <button class="category-picker__add" bindtap="onCreateCategory" disabled="{{disabled}}">+ 新增分类</button>
+    </view>
+  </view>
+</view>

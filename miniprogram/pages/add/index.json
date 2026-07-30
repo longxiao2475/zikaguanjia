@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "录入字卡"
+  "navigationBarTitleText": "录入字卡",
+  "usingComponents": {
+    "category-picker": "/components/category-picker/index"
+  }
 }

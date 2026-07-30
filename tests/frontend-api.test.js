@@ -26,6 +26,7 @@ const cache = require('../miniprogram/utils/cache');
 const { callFunction } = require('../miniprogram/utils/cloud');
 const session = require('../miniprogram/utils/session');
 const cardApi = require('../miniprogram/utils/card');
+const categoryApi = require('../miniprogram/utils/category');
 const reviewApi = require('../miniprogram/utils/review-api');
 
 test.beforeEach(() => {
@@ -84,6 +85,30 @@ test('首页第一页全部列表会覆盖字卡缓存', async () => {
 
   await cardApi.listCards({ childId: 'c1', filter: 'all', page: 1 });
   assert.deepEqual(cache.getCards(), [{ _id: 'a' }]);
+});
+
+test('分类 API 列出、新增和改名后更新本地缓存', async () => {
+  global.__cloudResponse = {
+    result: { ok: true, data: [{ _id: 'category-1', name: '植物' }] },
+  };
+  const listed = await categoryApi.listCategories('c1');
+  assert.deepEqual(calls[0], {
+    name: 'categoryService',
+    data: { action: 'list', childId: 'c1' },
+  });
+  assert.deepEqual(cache.getCategories(), listed);
+
+  global.__cloudResponse = {
+    result: { ok: true, data: { _id: 'category-2', name: '汽车' } },
+  };
+  await categoryApi.createCategory({ childId: 'c1', name: '汽车' });
+  assert.deepEqual(cache.getCategories().map((item) => item._id), ['category-1', 'category-2']);
+
+  global.__cloudResponse = {
+    result: { ok: true, data: { _id: 'category-2', name: '交通工具' } },
+  };
+  await categoryApi.updateCategory({ childId: 'c1', categoryId: 'category-2', name: '交通工具' });
+  assert.equal(cache.getCategories()[1].name, '交通工具');
 });
 
 test('搜索列表透传 keyword，按 ID 补查调用 getByIds', async () => {

@@ -45,6 +45,20 @@ test('五个页面的 js/json/wxml/wxss 文件全部存在', () => {
   }
 });
 
+test('分类选择组件文件完整并在录入页和字卡库注册', () => {
+  for (const extension of ['js', 'json', 'wxml', 'wxss']) {
+    assert.equal(
+      fs.existsSync(path.join(root, `miniprogram/components/category-picker/index.${extension}`)),
+      true,
+      `category-picker/index.${extension} should exist`,
+    );
+  }
+  for (const page of ['add', 'library']) {
+    const config = JSON.parse(read(`miniprogram/pages/${page}/index.json`));
+    assert.equal(config.usingComponents['category-picker'], '/components/category-picker/index');
+  }
+});
+
 test('前端不再引用 QuickStart 页面和提示组件', () => {
   const appJson = read('miniprogram/app.json');
   const indexWxml = read('miniprogram/pages/index/index.wxml');
