@@ -60,6 +60,11 @@ function createMemoryRepository(seed = {}) {
         && log.templateId === templateId
       )) || null;
     },
+    async listReminderLogsByOwner(ownerOpenid, bizDate) {
+      return logs.filter((log) => (
+        log.ownerOpenid === ownerOpenid && log.bizDate === bizDate
+      ));
+    },
     async createReminderLog(data) {
       const existing = logs.find((log) => (
         log.childId === data.childId
@@ -263,6 +268,22 @@ test('次日重新建立日志并允许再次发送', async () => {
   assert.equal(nextDay.sent, 1);
   assert.equal(repository.logs.length, 2);
   assert.equal(sender.calls.length, 2);
+});
+
+test('当前用户可以只读查询当天提醒失败详情', async () => {
+  const repository = createMemoryRepository();
+  const sender = createSender();
+  sender.fail = true;
+  const service = createReminderService({ repository, sender });
+  const now = new Date('2026-07-26T12:05:00.000Z');
+
+  await service.run(now);
+  const status = await service.getStatus('openid-1', now);
+
+  assert.equal(status.bizDate, '2026-07-26');
+  assert.equal(status.logs.length, 1);
+  assert.equal(status.logs[0].status, 'failed');
+  assert.equal(status.logs[0].errorCode, 'WECHAT_SEND_FAILED');
 });
 
 test('模板内容限制为 20 个字符', () => {

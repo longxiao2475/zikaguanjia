@@ -104,7 +104,14 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
     return summary;
   }
 
-  return { run };
+  async function getStatus(openid, now = new Date()) {
+    if (!openid || typeof openid !== 'string') throw new Error('OPENID_REQUIRED');
+    const context = getShanghaiContext(now);
+    const logs = await repository.listReminderLogsByOwner(openid, context.bizDate);
+    return { bizDate: context.bizDate, logs };
+  }
+
+  return { getStatus, run };
 }
 
 module.exports = {

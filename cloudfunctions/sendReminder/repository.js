@@ -53,6 +53,10 @@ function createReminderRepository(db) {
 
     findReminderLog,
 
+    async listReminderLogsByOwner(ownerOpenid, bizDate) {
+      return listAll(reminderLogs, { ownerOpenid, bizDate });
+    },
+
     async createReminderLog(data) {
       try {
         const createdAt = db.serverDate();

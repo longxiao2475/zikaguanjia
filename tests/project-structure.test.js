@@ -256,6 +256,13 @@ test('提醒云函数配置每小时定时触发器', () => {
   }]);
 });
 
+test('提醒云函数提供仅当前用户可读的当天状态诊断', () => {
+  const reminderIndex = read('cloudfunctions/sendReminder/index.js');
+  assert.equal(reminderIndex.includes("event.action === 'status'"), true);
+  assert.equal(reminderIndex.includes('cloud.getWXContext().OPENID'), true);
+  assert.equal(reminderIndex.includes('service.getStatus'), true);
+});
+
 test('首页同时包含认字日兜底和额度预警入口', () => {
   const indexJs = read('miniprogram/pages/index/index.js');
   const indexWxml = read('miniprogram/pages/index/index.wxml');

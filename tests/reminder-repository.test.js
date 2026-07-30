@@ -80,7 +80,7 @@ function createFakeDb(seed = {}) {
 test('提醒仓储复用每日日志并累计尝试次数和状态', async () => {
   const db = createFakeDb({
     reminder_logs: [{
-      _id: 'log-1', childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
+      _id: 'log-1', ownerOpenid: 'openid-1', childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
       status: 'failed', attemptCount: 1,
     }],
   });
@@ -89,6 +89,7 @@ test('提醒仓储复用每日日志并累计尝试次数和状态', async () =>
   const found = await repository.findReminderLog({
     childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
   });
+  const owned = await repository.listReminderLogsByOwner('openid-1', '2026-07-30');
   const attempted = await repository.beginAttempt(found._id, {
     dueCardCount: 2,
     dueCards: [{ cardId: 'card-1', contentSnapshot: '大' }],
@@ -101,6 +102,7 @@ test('提醒仓储复用每日日志并累计尝试次数和状态', async () =>
   const failed = await repository.markFailed(found._id, Object.assign(new Error('失败'), { code: 'WX_FAIL' }));
 
   assert.equal(attemptedSnapshot.attemptCount, 2);
+  assert.equal(owned.length, 1);
   assert.equal(attemptedSnapshot.dueCardCount, 2);
   assert.equal(noDueStatus, 'no_due_cards');
   assert.equal(quotaEmptyStatus, 'quota_empty');

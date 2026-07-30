@@ -12,8 +12,12 @@ const sender = {
 };
 const service = createReminderService({ repository, sender, templateId: TEMPLATE_ID });
 
-exports.main = async () => {
+exports.main = async (event = {}) => {
   try {
+    if (event.action === 'status') {
+      const openid = cloud.getWXContext().OPENID;
+      return { ok: true, data: await service.getStatus(openid, new Date()) };
+    }
     return { ok: true, data: await service.run(new Date()) };
   } catch (error) {
     console.error('sendReminder failed', error);
@@ -26,4 +30,3 @@ exports.main = async () => {
     };
   }
 };
-
