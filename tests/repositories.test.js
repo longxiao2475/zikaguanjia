@@ -3,12 +3,14 @@ const assert = require('node:assert/strict');
 
 const { createSyncSettingsRepository } = require('../cloudfunctions/syncSettings/repository');
 const { createCardRepository } = require('../cloudfunctions/cardService/repository');
+const { createCategoryRepository } = require('../cloudfunctions/categoryService/repository');
 
 function createFakeDb(seed = {}) {
   const tables = {
     users: [...(seed.users || [])],
     children: [...(seed.children || [])],
     cards: [...(seed.cards || [])],
+    categories: [...(seed.categories || [])],
   };
 
   function matches(item, query) {
@@ -96,4 +98,26 @@ test('cardService 仓储只列出活动字卡并写入更新时间', async () =>
   assert.equal(created.createdAt, 'SERVER_DATE');
   assert.equal(updated.updatedAt, 'SERVER_DATE');
   assert.equal(updated.proficiency, 'normal');
+});
+
+test('categoryService 仓储按孩子排序分类并写入更新时间', async () => {
+  const db = createFakeDb({
+    categories: [
+      { _id: 'b', childId: 'c1', name: '食品', sortOrder: 2, status: 'active' },
+      { _id: 'a', childId: 'c1', name: '植物', sortOrder: 1, status: 'active' },
+      { _id: 'x', childId: 'c1', name: '旧分类', sortOrder: 0, status: 'inactive' },
+    ],
+  });
+  const repository = createCategoryRepository(db);
+
+  const listed = await repository.listCategories('c1');
+  const all = await repository.listCategories('c1', true);
+  const created = await repository.createCategory({ childId: 'c1', name: '家具', normalizedName: '家具', sortOrder: 3, status: 'active' });
+  const updated = await repository.updateCategory(created._id, { name: '家居', normalizedName: '家居' });
+
+  assert.deepEqual(listed.map((item) => item._id), ['a', 'b']);
+  assert.deepEqual(all.map((item) => item._id), ['x', 'a', 'b']);
+  assert.equal(created.createdAt, 'SERVER_DATE');
+  assert.equal(updated.name, '家居');
+  assert.equal(updated.updatedAt, 'SERVER_DATE');
 });
