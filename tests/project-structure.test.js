@@ -9,6 +9,13 @@ function read(relativePath) {
   return fs.readFileSync(path.join(root, relativePath), 'utf8');
 }
 
+function readRule(wxss, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = wxss.match(new RegExp(`${escapedSelector}\\s*\\{([^}]*)\\}`));
+  assert.ok(match, `missing ${selector}`);
+  return match[1];
+}
+
 test('app.json 注册五个页面和三个顶层 tab', () => {
   const config = JSON.parse(read('miniprogram/app.json'));
   assert.deepEqual(config.pages, [
@@ -62,6 +69,57 @@ test('全局样式包含项目语义色和触控尺寸 token', () => {
   ]) {
     assert.equal(wxss.includes(token), true, `missing ${token}`);
   }
+});
+
+test('录入方式和单字详情添加按钮的文字垂直居中', () => {
+  const addWxss = read('miniprogram/pages/add/index.wxss');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+  const reviewWxss = read('miniprogram/pages/review/index.wxss');
+
+  for (const rule of [
+    readRule(addWxss, '.mode-tab'),
+    readRule(libraryWxss, '.word-detail__save'),
+    readRule(reviewWxss, '.word-detail__save'),
+  ]) {
+    assert.match(rule, /display:\s*flex;/);
+    assert.match(rule, /align-items:\s*center;/);
+    assert.match(rule, /justify-content:\s*center;/);
+  }
+});
+
+test('原生按钮网格允许列收缩且不会横向溢出', () => {
+  const addWxss = read('miniprogram/pages/add/index.wxss');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+
+  assert.match(readRule(addWxss, '.mode-tabs'), /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(readRule(addWxss, '.source-switch'), /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(readRule(libraryWxss, '.filter-tabs'), /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(readRule(libraryWxss, '.edit-sheet__proficiencies'), /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/);
+  assert.match(readRule(libraryWxss, '.edit-sheet__actions'), /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1\.5fr\);/);
+
+  for (const rule of [
+    readRule(addWxss, '.mode-tab'),
+    readRule(addWxss, '.source-option'),
+    readRule(libraryWxss, '.filter-tab'),
+    readRule(libraryWxss, '.edit-sheet__proficiency'),
+  ]) {
+    assert.match(rule, /width:\s*100%;/);
+    assert.match(rule, /min-width:\s*0;/);
+  }
+});
+
+test('编辑字卡完整显示三个熟练度且按钮文字垂直居中', () => {
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+
+  for (const value of ['unfamiliar', 'normal', 'proficient']) {
+    assert.equal(libraryWxml.includes(`data-value="${value}"`), true, `missing ${value}`);
+  }
+
+  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /display:\s*flex;/);
+  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /align-items:\s*center;/);
+  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /justify-content:\s*center;/);
+  assert.match(libraryWxss, /\.edit-sheet__delete,\s*\.edit-sheet__save\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s);
 });
 
 test('复习页和字卡库内联字卡详情且不再依赖 word-sheet 组件', () => {

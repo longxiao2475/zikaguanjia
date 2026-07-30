@@ -355,6 +355,9 @@
   border-radius: 24rpx;
   color: #FFFFFF;
   background: var(--color-primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 27rpx;
   font-weight: 650;
 }
