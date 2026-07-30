@@ -14,6 +14,8 @@ async function listCards(payload) {
   const result = await callFunction('cardService', { action: 'list', ...payload });
   if ((payload.filter || 'all') === 'all'
     && !String(payload.keyword || '').trim()
+    && !(Array.isArray(payload.categoryIds) && payload.categoryIds.length)
+    && payload.includeUncategorized !== true
     && Number(payload.page || 1) === 1) {
     cache.setCards(result.items || []);
     cache.setLastSyncAt(Date.now());

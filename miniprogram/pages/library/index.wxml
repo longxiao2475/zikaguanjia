@@ -27,6 +27,14 @@
     </button>
   </view>
 
+  <view class="category-filter-bar">
+    <button class="category-filter-button {{selectedCategoryFilterIds.length ? 'category-filter-button--active' : ''}}" bindtap="onOpenCategoryFilter" disabled="{{categoriesLoading}}">
+      <view class="category-filter-button__label">分类</view>
+      <view class="category-filter-button__value">{{categoriesLoading ? '加载中' : categoryFilterSummary}}</view>
+    </button>
+    <button wx:if="{{categoryError}}" class="category-filter-retry" bindtap="loadCategories">重试</button>
+  </view>
+
   <view class="filter-tabs surface-card">
     <button
       wx:for="{{tabs}}"
@@ -78,6 +86,11 @@
         <view class="word-card__topline">
           <view class="word-card__content">{{item.content}}</view>
           <view class="word-card__type">{{item.typeLabel}}</view>
+        </view>
+        <view class="word-card__categories">
+          <view class="word-card__category" wx:for="{{item.categoryLabels}}" wx:for-item="categoryLabel" wx:key="*this">{{categoryLabel}}</view>
+          <view wx:if="{{item.categoryOverflowCount}}" class="word-card__category">+{{item.categoryOverflowCount}}</view>
+          <view wx:if="{{!item.categoryLabels.length}}" class="word-card__category word-card__category--empty">未分类</view>
         </view>
         <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
       </view>
@@ -198,6 +211,12 @@
         >熟练</button>
       </view>
 
+      <view class="edit-sheet__label edit-sheet__label--category">所属分类</view>
+      <button class="edit-sheet__category" bindtap="onOpenEditCategoryPicker" disabled="{{editSaving}}">
+        <view class="edit-sheet__category-text">{{editCategorySummary}}</view>
+        <view class="edit-sheet__category-action">修改</view>
+      </button>
+
       <view class="edit-sheet__actions">
         <button class="edit-sheet__delete" bindtap="onDeleteCard" disabled="{{editSaving}}">删除字卡</button>
         <button class="primary-button edit-sheet__save" bindtap="onSaveEdit" loading="{{editSaving}}" disabled="{{editSaving}}">保存修改</button>
@@ -205,4 +224,35 @@
       <button class="text-button edit-sheet__cancel" bindtap="onCloseEdit" disabled="{{editSaving}}">取消</button>
     </view>
   </view>
+
+  <category-picker
+    visible="{{showCategoryFilterPicker}}"
+    title="筛选分类"
+    categories="{{categories}}"
+    selected-ids="{{pendingCategoryFilterIds}}"
+    multiple="{{true}}"
+    show-uncategorized="{{true}}"
+    filter-mode="{{true}}"
+    disabled="{{categorySaving}}"
+    bindchange="onPendingCategoryFilterChange"
+    bindconfirm="onConfirmCategoryFilter"
+    bindclose="onCloseCategoryFilter"
+    bindcreate="onCreateCategory"
+    bindrename="onRenameCategory"
+  />
+
+  <category-picker
+    visible="{{showEditCategoryPicker}}"
+    title="选择字卡分类"
+    categories="{{categories}}"
+    selected-ids="{{pendingEditCategoryIds}}"
+    multiple="{{true}}"
+    show-uncategorized="{{true}}"
+    disabled="{{categorySaving || editSaving}}"
+    bindchange="onPendingEditCategoryChange"
+    bindconfirm="onConfirmEditCategoryPicker"
+    bindclose="onCloseEditCategoryPicker"
+    bindcreate="onCreateCategory"
+    bindrename="onRenameCategory"
+  />
 </view>

@@ -1,9 +1,16 @@
 const cache = require('../../utils/cache');
 const cardApi = require('../../utils/card');
+const categoryApi = require('../../utils/category');
 const session = require('../../utils/session');
 const { toggleSelectedId } = require('../../utils/review-queue');
 const { isDue } = require('../../utils/review');
 const { decorateCard } = require('../../utils/view');
+const {
+  decorateCardCategories,
+  getCategorySelectionLabel,
+  normalizeSelectionIds,
+  splitCategoryFilter,
+} = require('../../utils/category-view');
 const {
   getWordDetail,
   mergeWordDetailInputs,
@@ -21,15 +28,30 @@ function normalizeEditableContent(value) {
   return String(value || '').normalize('NFKC').trim().replace(/\s+/g, '');
 }
 
-function cardMatchesView(card, filter, keyword) {
+function cardMatchesView(card, filter, keyword, selectedCategoryFilterIds = []) {
   if (!card || card.status === 'deleted') return false;
   const normalizedKeyword = normalizeEditableContent(keyword);
   const matchesKeyword = !normalizedKeyword
     || normalizeEditableContent(card.normalizedContent || card.content).includes(normalizedKeyword);
   if (!matchesKeyword) return false;
+  const categoryFilter = splitCategoryFilter(selectedCategoryFilterIds);
+  if (categoryFilter.categoryIds.length || categoryFilter.includeUncategorized) {
+    const cardCategoryIds = normalizeSelectionIds(card.categoryIds, 10);
+    const selectedIdSet = new Set(categoryFilter.categoryIds);
+    const matchesCategory = cardCategoryIds.some((id) => selectedIdSet.has(id))
+      || (categoryFilter.includeUncategorized && cardCategoryIds.length === 0);
+    if (!matchesCategory) return false;
+  }
   if (filter === 'due') return isDue(card);
   if (filter === 'mastered') return card.proficiency === 'proficient';
   return true;
+}
+
+function decorateLibraryCard(card, categories, selectedIds = []) {
+  return decorateCardCategories({
+    ...decorateCard(card),
+    selected: selectedIds.includes(card._id),
+  }, categories);
 }
 
 function updateTabCounts(tabs, previousCard, nextCard) {
@@ -75,10 +97,24 @@ Page({
     editingCard: null,
     editContent: '',
     editProficiency: 'unfamiliar',
+    editCategoryIds: [],
+    pendingEditCategoryIds: [],
+    editCategorySummary: '未分类',
     editSaving: false,
+    categories: [],
+    categoriesLoading: false,
+    categorySaving: false,
+    categoryError: '',
+    selectedCategoryFilterIds: [],
+    pendingCategoryFilterIds: [],
+    categoryFilterSummary: '全部分类',
+    showCategoryFilterPicker: false,
+    showEditCategoryPicker: false,
   },
 
   onShow() {
+    const cachedCategories = cache.getCategories();
+    if (cachedCategories.length) this.setData({ categories: cachedCategories });
     const intendedFilter = cache.consumeLibraryFilterIntent();
     if (intendedFilter && intendedFilter !== this.data.selectedFilter) {
       this.setData({
@@ -89,6 +125,7 @@ Page({
         hasMore: false,
       });
     }
+    this.loadCategories();
     this.loadCards(true);
   },
 
@@ -101,6 +138,29 @@ Page({
     if (cached.child) return cached.child;
     const result = await session.bootstrap();
     return result.child;
+  },
+
+  async loadCategories() {
+    if (this.data.categoriesLoading) return;
+    this.setData({ categoriesLoading: true, categoryError: '' });
+    try {
+      const child = await this.ensureChild();
+      const categories = await categoryApi.listCategories(child._id);
+      this.setData({
+        categories,
+        items: this.data.items.map((item) => decorateLibraryCard(item, categories, this.data.selectedIds)),
+        categoryFilterSummary: getCategorySelectionLabel(
+          categories,
+          this.data.selectedCategoryFilterIds,
+          { filterMode: true },
+        ),
+        editCategorySummary: getCategorySelectionLabel(categories, this.data.editCategoryIds),
+      });
+    } catch (error) {
+      this.setData({ categoryError: error.message || '分类加载失败' });
+    } finally {
+      this.setData({ categoriesLoading: false });
+    }
   },
 
   async loadCards(reset = false) {
@@ -119,17 +179,21 @@ Page({
     let succeeded = false;
     try {
       const child = await this.ensureChild();
+      const categoryFilter = splitCategoryFilter(this.data.selectedCategoryFilterIds);
       const result = await cardApi.listCards({
         childId: child._id,
         filter: this.data.selectedFilter,
         keyword: this.data.keyword,
+        categoryIds: categoryFilter.categoryIds,
+        includeUncategorized: categoryFilter.includeUncategorized,
         page: nextPage,
         pageSize: 20,
       });
-      const incoming = (result.items || []).map((card) => ({
-        ...decorateCard(card),
-        selected: this.data.selectedIds.includes(card._id),
-      }));
+      const incoming = (result.items || []).map((card) => decorateLibraryCard(
+        card,
+        this.data.categories,
+        this.data.selectedIds,
+      ));
       const items = reset ? incoming : [...this.data.items, ...incoming];
       const counts = result.counts || { all: 0, due: 0, mastered: 0 };
       this.setData({
@@ -183,6 +247,40 @@ Page({
     clearTimeout(this._searchTimer);
     this.setData({ keyword: '' });
     this.loadCards(true);
+  },
+
+  onOpenCategoryFilter() {
+    this.setData({
+      pendingCategoryFilterIds: [...this.data.selectedCategoryFilterIds],
+      showCategoryFilterPicker: true,
+    });
+  },
+
+  onPendingCategoryFilterChange(event) {
+    this.setData({ pendingCategoryFilterIds: normalizeSelectionIds(event.detail.selectedIds) });
+  },
+
+  onCloseCategoryFilter() {
+    if (this.data.categorySaving) return;
+    this.setData({ showCategoryFilterPicker: false });
+  },
+
+  onConfirmCategoryFilter(event) {
+    const selectedCategoryFilterIds = normalizeSelectionIds(event.detail.selectedIds);
+    this.setData({
+      selectedCategoryFilterIds,
+      pendingCategoryFilterIds: selectedCategoryFilterIds,
+      categoryFilterSummary: getCategorySelectionLabel(
+        this.data.categories,
+        selectedCategoryFilterIds,
+        { filterMode: true },
+      ),
+      showCategoryFilterPicker: false,
+      items: [],
+      page: 1,
+      hasMore: false,
+    });
+    return this.loadCards(true);
   },
 
   onToggleSelectionMode() {
@@ -254,12 +352,15 @@ Page({
       editingCard: card,
       editContent: card.content,
       editProficiency: card.proficiency,
+      editCategoryIds: normalizeSelectionIds(card.categoryIds, 10),
+      pendingEditCategoryIds: normalizeSelectionIds(card.categoryIds, 10),
+      editCategorySummary: getCategorySelectionLabel(this.data.categories, card.categoryIds),
     });
   },
 
   onCloseEdit() {
     if (this.data.editSaving) return;
-    this.setData({ showEditSheet: false, editingCard: null });
+    this.setData({ showEditSheet: false, showEditCategoryPicker: false, editingCard: null });
   },
 
   onEditContentInput(event) {
@@ -270,6 +371,80 @@ Page({
   onSelectEditProficiency(event) {
     if (this.data.editSaving) return;
     this.setData({ editProficiency: event.currentTarget.dataset.value });
+  },
+
+  onOpenEditCategoryPicker() {
+    if (this.data.editSaving) return;
+    this.setData({
+      pendingEditCategoryIds: [...this.data.editCategoryIds],
+      showEditCategoryPicker: true,
+    });
+  },
+
+  onPendingEditCategoryChange(event) {
+    if (this.data.editSaving) return;
+    this.setData({ pendingEditCategoryIds: normalizeSelectionIds(event.detail.selectedIds, 10) });
+  },
+
+  onCloseEditCategoryPicker() {
+    if (this.data.editSaving || this.data.categorySaving) return;
+    this.setData({ showEditCategoryPicker: false });
+  },
+
+  onConfirmEditCategoryPicker(event) {
+    if (this.data.editSaving) return;
+    const editCategoryIds = normalizeSelectionIds(event.detail.selectedIds, 10);
+    this.setData({
+      editCategoryIds,
+      pendingEditCategoryIds: editCategoryIds,
+      editCategorySummary: getCategorySelectionLabel(this.data.categories, editCategoryIds),
+      showEditCategoryPicker: false,
+    });
+  },
+
+  async onCreateCategory(event) {
+    if (this.data.categorySaving) return;
+    this.setData({ categorySaving: true });
+    try {
+      const child = await this.ensureChild();
+      await categoryApi.createCategory({ childId: child._id, name: event.detail.name });
+      const categories = cache.getCategories();
+      this.setData({ categories });
+      wx.showToast({ title: '分类已添加', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '分类添加失败', icon: 'none' });
+    } finally {
+      this.setData({ categorySaving: false });
+    }
+  },
+
+  async onRenameCategory(event) {
+    if (this.data.categorySaving) return;
+    this.setData({ categorySaving: true });
+    try {
+      const child = await this.ensureChild();
+      await categoryApi.updateCategory({
+        childId: child._id,
+        categoryId: event.detail.categoryId,
+        name: event.detail.name,
+      });
+      const categories = cache.getCategories();
+      this.setData({
+        categories,
+        items: this.data.items.map((item) => decorateLibraryCard(item, categories, this.data.selectedIds)),
+        categoryFilterSummary: getCategorySelectionLabel(
+          categories,
+          this.data.selectedCategoryFilterIds,
+          { filterMode: true },
+        ),
+        editCategorySummary: getCategorySelectionLabel(categories, this.data.editCategoryIds),
+      });
+      wx.showToast({ title: '分类已修改', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '分类修改失败', icon: 'none' });
+    } finally {
+      this.setData({ categorySaving: false });
+    }
   },
 
   async onSaveEdit() {
@@ -289,12 +464,22 @@ Page({
         cardId: editingCard._id,
         content,
         proficiency,
+        categoryIds: this.data.editCategoryIds,
       };
       if (normalizeEditableContent(content) !== normalizeEditableContent(editingCard.content)) {
         updatePayload.customWords = [];
       }
-      const updated = decorateCard(await cardApi.updateCard(updatePayload));
-      const remainsVisible = cardMatchesView(updated, this.data.selectedFilter, this.data.keyword);
+      const updated = decorateLibraryCard(
+        await cardApi.updateCard(updatePayload),
+        this.data.categories,
+        this.data.selectedIds,
+      );
+      const remainsVisible = cardMatchesView(
+        updated,
+        this.data.selectedFilter,
+        this.data.keyword,
+        this.data.selectedCategoryFilterIds,
+      );
       this.setData({
         items: remainsVisible
           ? this.data.items.map((item) => (item._id === updated._id ? updated : item))

@@ -80,6 +80,60 @@
   font-size: 24rpx;
 }
 
+.category-filter-bar {
+  margin-bottom: 12rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.category-filter-button {
+  width: 100%;
+  min-width: 0;
+  min-height: 78rpx;
+  padding: 0 20rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 22rpx;
+  color: var(--color-text-secondary);
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  text-align: left;
+}
+
+.category-filter-button--active {
+  border-color: rgba(255, 138, 101, 0.38);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+}
+
+.category-filter-button__label {
+  flex: 0 0 auto;
+  font-size: 24rpx;
+  font-weight: 680;
+}
+
+.category-filter-button__value {
+  min-width: 0;
+  flex: 1;
+  font-size: 24rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-filter-retry {
+  width: 112rpx;
+  min-width: 112rpx;
+  min-height: 78rpx;
+  color: var(--color-primary-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 23rpx;
+}
+
 .filter-tabs {
   padding: 8rpx;
   display: grid;
@@ -253,6 +307,29 @@
   font-size: 24rpx;
 }
 
+.word-card__categories {
+  margin-top: 8rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.word-card__category {
+  min-height: 38rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 12rpx;
+  color: #9A523B;
+  background: #FFF0EB;
+  display: flex;
+  align-items: center;
+  font-size: 20rpx;
+}
+
+.word-card__category--empty {
+  color: var(--color-text-muted);
+  background: #F6F3EF;
+}
+
 .library-empty {
   margin-top: 22rpx;
 }
@@ -323,9 +400,11 @@
 
 .edit-sheet {
   width: 100%;
+  max-height: 84vh;
   padding: 20rpx 34rpx calc(30rpx + env(safe-area-inset-bottom));
   border-radius: 38rpx 38rpx 0 0;
   background: #FFFFFF;
+  overflow-y: auto;
 }
 
 .edit-sheet__handle {
@@ -409,6 +488,39 @@
   border-color: var(--color-proficient);
   color: #317A39;
   background: #EEF8EF;
+}
+
+.edit-sheet__label--category {
+  margin-top: 28rpx;
+}
+
+.edit-sheet__category {
+  width: 100%;
+  min-width: 0;
+  min-height: 88rpx;
+  margin-top: 10rpx;
+  padding: 0 22rpx;
+  border: 2rpx solid var(--color-border);
+  border-radius: 24rpx;
+  color: var(--color-text);
+  background: #FCFBF9;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  text-align: left;
+}
+
+.edit-sheet__category-text {
+  min-width: 0;
+  flex: 1;
+  font-size: 25rpx;
+}
+
+.edit-sheet__category-action {
+  color: var(--color-primary-dark);
+  flex: 0 0 auto;
+  font-size: 24rpx;
+  font-weight: 650;
 }
 
 .edit-sheet__actions {

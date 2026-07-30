@@ -255,6 +255,9 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxml.includes('<button\n        wx:if="{{selectionMode}}"\n        class="word-card__selector'), false);
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
   assert.equal(libraryWxml.includes('开始复习'), true);
+  assert.equal(libraryWxml.includes('category-filter-button'), true);
+  assert.equal(libraryWxml.includes('word-card__category'), true);
+  assert.equal(libraryWxml.includes('showCategoryFilterPicker'), true);
   assert.equal(libraryWxml.includes('编辑字卡'), true);
   assert.equal(libraryWxml.includes('删除字卡'), true);
   assert.equal(libraryWxml.includes('class="word-card__edit"'), true);
@@ -262,6 +265,15 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxss.includes('color: var(--color-text);'), true);
   assert.equal(libraryWxss.includes('caret-color: var(--color-primary-dark);'), true);
   assert.equal(libraryWxss.includes('width: 38rpx;'), true);
+});
+
+test('录入和编辑字卡都提供分类选择入口', () => {
+  const addWxml = read('miniprogram/pages/add/index.wxml');
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  assert.equal(addWxml.includes('所属分类'), true);
+  assert.equal(addWxml.includes('showCategoryPicker'), true);
+  assert.equal(libraryWxml.includes('editCategorySummary'), true);
+  assert.equal(libraryWxml.includes('showEditCategoryPicker'), true);
 });
 
 test('内联详情关闭控件和复习拖拽结构齐全', () => {

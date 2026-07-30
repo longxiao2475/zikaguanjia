@@ -41,6 +41,17 @@
         <view class="source-option__text">默认标记为一般</view>
       </button>
     </view>
+
+    <view class="field-label category-label">所属分类</view>
+    <button class="category-select" bindtap="onOpenCategoryPicker" disabled="{{saving || categoriesLoading}}">
+      <view class="category-select__text">{{categoriesLoading ? '正在加载分类' : categorySummary}}</view>
+      <view class="category-select__action">选择</view>
+    </button>
+    <view class="field-helper">可多选；不选择时保存为“未分类”。</view>
+    <view wx:if="{{categoryError}}" class="category-error">
+      <text>{{categoryError}}</text>
+      <button class="category-error__retry" bindtap="loadCategories">重试</button>
+    </view>
   </view>
 
   <view wx:if="{{errorMessage}}" class="inline-error">{{errorMessage}}</view>
@@ -59,4 +70,19 @@
     disabled="{{saving || !content}}"
     bindtap="onSave"
   >{{saving ? '正在保存' : '保存字卡'}}</button>
+
+  <category-picker
+    visible="{{showCategoryPicker}}"
+    title="选择字卡分类"
+    categories="{{categories}}"
+    selected-ids="{{pendingCategoryIds}}"
+    multiple="{{true}}"
+    show-uncategorized="{{true}}"
+    disabled="{{categorySaving}}"
+    bindchange="onPendingCategoryChange"
+    bindconfirm="onConfirmCategoryPicker"
+    bindclose="onCloseCategoryPicker"
+    bindcreate="onCreateCategory"
+    bindrename="onRenameCategory"
+  />
 </view>

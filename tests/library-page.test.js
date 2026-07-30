@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const pagePath = path.join(__dirname, '../miniprogram/pages/library/index.js');
 
-function loadLibraryPage({ cardApi, wxApi } = {}) {
+function loadLibraryPage({ cardApi, categoryApi, cacheApi, wxApi } = {}) {
   const originalLoad = Module._load;
   let definition;
   const resolvedCardApi = cardApi || {};
@@ -13,12 +13,14 @@ function loadLibraryPage({ cardApi, wxApi } = {}) {
   global.wx = wxApi || { showToast() {}, showModal() {}, stopPullDownRefresh() {} };
   Module._load = function mockLoad(request, parent, isMain) {
     if (request === '../../utils/cache') {
-      return {
+      return cacheApi || {
         consumeLibraryFilterIntent: () => null,
+        getCategories: () => [],
         setManualReviewQueue() {},
       };
     }
     if (request === '../../utils/card') return resolvedCardApi;
+    if (request === '../../utils/category') return categoryApi || {};
     if (request === '../../utils/session') {
       return {
         getCachedSession: () => ({ child: { _id: 'child-1' } }),
@@ -56,7 +58,14 @@ function createContext(definition, data = {}) {
       editingCard: null,
       editContent: '',
       editProficiency: 'unfamiliar',
+      editCategoryIds: [],
+      pendingEditCategoryIds: [],
       editSaving: false,
+      categories: [],
+      selectedCategoryFilterIds: [],
+      pendingCategoryFilterIds: [],
+      showCategoryFilterPicker: false,
+      showEditCategoryPicker: false,
       selectedFilter: 'all',
       keyword: '',
       totalResults: 0,
@@ -106,6 +115,7 @@ test('修改字卡内容时清空旧自定义组词并关闭编辑层', async ()
     cardId: 'card-1',
     content: '小',
     proficiency: 'normal',
+    categoryIds: [],
     customWords: [],
   });
   assert.equal(context.data.showEditSheet, false);
@@ -205,6 +215,79 @@ test('编辑保存期间忽略输入和熟练度变更', () => {
 
   assert.equal(context.data.editContent, '大');
   assert.equal(context.data.editProficiency, 'unfamiliar');
+});
+
+test('打开编辑会复制字卡分类并在保存时提交修改后的分类', async () => {
+  let payload;
+  const card = {
+    _id: 'card-1',
+    content: '汽车',
+    proficiency: 'unfamiliar',
+    categoryIds: ['traffic'],
+    customWords: [],
+    status: 'active',
+  };
+  const definition = loadLibraryPage({
+    cardApi: {
+      updateCard: async (value) => {
+        payload = value;
+        return { ...card, categoryIds: value.categoryIds };
+      },
+    },
+  });
+  const context = createContext(definition, {
+    items: [card],
+    categories: [
+      { _id: 'traffic', name: '交通工具' },
+      { _id: 'food', name: '食品' },
+    ],
+  });
+  context.loadCards = async () => true;
+
+  definition.onOpenEdit.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+  assert.deepEqual(context.data.editCategoryIds, ['traffic']);
+  definition.onOpenEditCategoryPicker.call(context);
+  definition.onPendingEditCategoryChange.call(context, { detail: { selectedIds: ['food'] } });
+  definition.onConfirmEditCategoryPicker.call(context, { detail: { selectedIds: ['food'] } });
+  await definition.onSaveEdit.call(context);
+
+  assert.deepEqual(payload, {
+    childId: 'child-1',
+    cardId: 'card-1',
+    content: '汽车',
+    proficiency: 'unfamiliar',
+    categoryIds: ['food'],
+  });
+});
+
+test('分类筛选确认后重置分页并发送多分类和未分类参数', async () => {
+  let listPayload;
+  const definition = loadLibraryPage({
+    cardApi: {
+      listCards: async (value) => {
+        listPayload = value;
+        return { items: [], total: 0, page: 1, hasMore: false, counts: {} };
+      },
+    },
+  });
+  const context = createContext(definition, {
+    categories: [{ _id: 'traffic', name: '交通工具' }],
+    page: 3,
+    items: [{ _id: 'old' }],
+  });
+
+  definition.onOpenCategoryFilter.call(context);
+  definition.onPendingCategoryFilterChange.call(context, {
+    detail: { selectedIds: ['traffic', '__uncategorized__'] },
+  });
+  await definition.onConfirmCategoryFilter.call(context, {
+    detail: { selectedIds: ['traffic', '__uncategorized__'] },
+  });
+
+  assert.deepEqual(context.data.selectedCategoryFilterIds, ['traffic', '__uncategorized__']);
+  assert.deepEqual(listPayload.categoryIds, ['traffic']);
+  assert.equal(listPayload.includeUncategorized, true);
+  assert.equal(listPayload.page, 1);
 });
 
 test('普通模式点击整行打开按不重复单字拆分的详情', () => {

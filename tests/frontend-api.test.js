@@ -85,6 +85,13 @@ test('首页第一页全部列表会覆盖字卡缓存', async () => {
 
   await cardApi.listCards({ childId: 'c1', filter: 'all', page: 1 });
   assert.deepEqual(cache.getCards(), [{ _id: 'a' }]);
+
+  cache.setCards([{ _id: 'keep' }]);
+  global.__cloudResponse = {
+    result: { ok: true, data: { items: [{ _id: 'filtered' }], page: 1, hasMore: false } },
+  };
+  await cardApi.listCards({ childId: 'c1', filter: 'all', categoryIds: ['traffic'], page: 1 });
+  assert.deepEqual(cache.getCards(), [{ _id: 'keep' }]);
 });
 
 test('分类 API 列出、新增和改名后更新本地缓存', async () => {

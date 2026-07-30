@@ -1,5 +1,8 @@
 const cardApi = require('../../utils/card');
+const categoryApi = require('../../utils/category');
+const cache = require('../../utils/cache');
 const session = require('../../utils/session');
+const { getCategorySelectionLabel, normalizeSelectionIds } = require('../../utils/category-view');
 
 Page({
   data: {
@@ -8,6 +11,20 @@ Page({
     saving: false,
     errorMessage: '',
     savedCard: null,
+    categories: [],
+    selectedCategoryIds: [],
+    pendingCategoryIds: [],
+    categorySummary: '未分类',
+    showCategoryPicker: false,
+    categoriesLoading: false,
+    categorySaving: false,
+    categoryError: '',
+  },
+
+  onLoad() {
+    const categories = cache.getCategories();
+    if (categories.length) this.setData({ categories });
+    this.loadCategories();
   },
 
   onInput(event) {
@@ -24,6 +41,88 @@ Page({
 
   onVoicePending() {
     wx.showToast({ title: '语音录入将在下一阶段接入', icon: 'none' });
+  },
+
+  async loadCategories() {
+    if (this.data.categoriesLoading) return;
+    this.setData({ categoriesLoading: true, categoryError: '' });
+    try {
+      const child = await this.ensureChild();
+      const categories = await categoryApi.listCategories(child._id);
+      this.setData({
+        categories,
+        categorySummary: getCategorySelectionLabel(categories, this.data.selectedCategoryIds),
+      });
+    } catch (error) {
+      this.setData({ categoryError: error.message || '分类加载失败' });
+    } finally {
+      this.setData({ categoriesLoading: false });
+    }
+  },
+
+  onOpenCategoryPicker() {
+    this.setData({
+      pendingCategoryIds: [...this.data.selectedCategoryIds],
+      showCategoryPicker: true,
+    });
+  },
+
+  onPendingCategoryChange(event) {
+    this.setData({ pendingCategoryIds: normalizeSelectionIds(event.detail.selectedIds, 10) });
+  },
+
+  onCloseCategoryPicker() {
+    if (this.data.categorySaving) return;
+    this.setData({ showCategoryPicker: false });
+  },
+
+  onConfirmCategoryPicker(event) {
+    const selectedCategoryIds = normalizeSelectionIds(event.detail.selectedIds, 10);
+    this.setData({
+      selectedCategoryIds,
+      pendingCategoryIds: selectedCategoryIds,
+      categorySummary: getCategorySelectionLabel(this.data.categories, selectedCategoryIds),
+      showCategoryPicker: false,
+    });
+  },
+
+  async onCreateCategory(event) {
+    if (this.data.categorySaving) return;
+    this.setData({ categorySaving: true });
+    try {
+      const child = await this.ensureChild();
+      await categoryApi.createCategory({ childId: child._id, name: event.detail.name });
+      const categories = cache.getCategories();
+      this.setData({ categories });
+      wx.showToast({ title: '分类已添加', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '分类添加失败', icon: 'none' });
+    } finally {
+      this.setData({ categorySaving: false });
+    }
+  },
+
+  async onRenameCategory(event) {
+    if (this.data.categorySaving) return;
+    this.setData({ categorySaving: true });
+    try {
+      const child = await this.ensureChild();
+      await categoryApi.updateCategory({
+        childId: child._id,
+        categoryId: event.detail.categoryId,
+        name: event.detail.name,
+      });
+      const categories = cache.getCategories();
+      this.setData({
+        categories,
+        categorySummary: getCategorySelectionLabel(categories, this.data.selectedCategoryIds),
+      });
+      wx.showToast({ title: '分类已修改', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '分类修改失败', icon: 'none' });
+    } finally {
+      this.setData({ categorySaving: false });
+    }
   },
 
   async ensureChild() {
@@ -48,6 +147,7 @@ Page({
         childId: child._id,
         content,
         source: this.data.source,
+        categoryIds: this.data.selectedCategoryIds,
       });
       this.setData({ content: '', savedCard: card });
       wx.showToast({ title: '字卡已保存', icon: 'success' });
