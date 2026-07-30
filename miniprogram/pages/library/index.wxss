@@ -6,8 +6,12 @@
   padding: 10rpx 4rpx 24rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 20rpx;
+}
+
+.library-header__copy {
+  min-width: 0;
+  flex: 1;
 }
 
 .library-header__title {
@@ -25,6 +29,9 @@ button.library-header__add {
   width: auto;
   max-width: 100%;
   min-width: 154rpx;
+  min-height: 76rpx;
+  margin-left: auto;
+  margin-right: 0;
   padding: 0 24rpx;
   flex: 0 0 auto;
   font-size: 27rpx;
@@ -32,19 +39,22 @@ button.library-header__add {
 
 .library-tools {
   min-height: 88rpx;
-  margin-bottom: 10rpx;
+  margin-bottom: 14rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 20rpx;
 }
 
-.library-search {
+.library-filter-card {
   width: 100%;
   min-width: 0;
-  height: 92rpx;
-  margin-bottom: 12rpx;
-  padding: 0 18rpx 0 24rpx;
+  padding: 0 24rpx;
+  overflow: hidden;
+}
+
+.library-filter-search {
+  min-width: 0;
+  min-height: 96rpx;
   display: flex;
   align-items: center;
 }
@@ -67,6 +77,8 @@ button.library-header__add {
 button.library-search__clear {
   width: auto;
   min-width: 80rpx;
+  min-height: 72rpx;
+  margin: 0 0 0 12rpx;
   color: var(--color-primary-dark);
   font-size: 23rpx;
 }
@@ -74,6 +86,8 @@ button.library-search__clear {
 button.library-select {
   width: 180rpx;
   min-height: 76rpx;
+  margin-left: auto;
+  margin-right: 0;
   flex: 0 0 auto;
   font-size: 24rpx;
 }
@@ -83,42 +97,127 @@ button.library-select {
   font-size: 24rpx;
 }
 
-.category-filter-bar {
-  margin-bottom: 12rpx;
+.library-filter-section {
+  padding: 22rpx 0 24rpx;
+  border-top: 2rpx solid var(--color-border);
+}
+
+.library-filter-section__label {
+  margin-bottom: 14rpx;
+  color: var(--color-text-secondary);
+  font-size: 23rpx;
+  font-weight: 680;
+}
+
+.filter-tabs,
+.review-age-options {
+  min-width: 0;
+  padding: 6rpx;
+  border-radius: 24rpx;
+  background: #F7F4F0;
+  display: grid;
+  gap: 6rpx;
+}
+
+.filter-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.review-age-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+button.filter-tab,
+button.review-age-option {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 88rpx;
+  margin: 0;
+  padding: 0 10rpx;
+  border: 2rpx solid transparent;
+  border-radius: 20rpx;
+  color: var(--color-text-secondary);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+button.filter-tab {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+button.review-age-option {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+button.filter-tab--active,
+button.review-age-option--active {
+  border-color: rgba(230, 112, 74, 0.22);
+  color: var(--color-primary-dark);
+  background: #FFFFFF;
+  box-shadow: 0 4rpx 12rpx rgba(83, 58, 42, 0.08);
+}
+
+button.filter-tab--active {
+  color: var(--color-primary-dark);
+  background: #FFFFFF;
+}
+
+button.review-age-option--active {
+  color: var(--color-primary-dark);
+  background: #FFFFFF;
+}
+
+.filter-tab__count {
+  min-width: 34rpx;
+  height: 34rpx;
+  padding: 0 8rpx;
+  border-radius: 17rpx;
+  background: rgba(255, 255, 255, 0.82);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 21rpx;
+}
+
+.library-filter-section--category {
+  padding: 0;
   display: flex;
   align-items: center;
   gap: 12rpx;
 }
 
-button.category-filter-button {
+button.library-filter-category {
   width: 100%;
   min-width: 0;
-  max-width: 100%;
-  min-height: 78rpx;
-  padding: 0 20rpx;
-  border: 2rpx solid var(--color-border);
-  border-radius: 22rpx;
-  color: var(--color-text-secondary);
-  background: #FFFFFF;
+  min-height: 96rpx;
+  margin: 0;
+  padding: 0;
+  color: var(--color-text);
+  background: transparent;
   display: flex;
   align-items: center;
   gap: 14rpx;
   text-align: left;
 }
 
-button.category-filter-button--active {
-  border-color: rgba(255, 138, 101, 0.38);
-  color: var(--color-primary-dark);
-  background: var(--color-primary-soft);
-}
-
-.category-filter-button__label {
+.library-filter-category__label {
   flex: 0 0 auto;
-  font-size: 24rpx;
+  color: var(--color-text-secondary);
+  font-size: 23rpx;
   font-weight: 680;
 }
 
-.category-filter-button__value {
+.library-filter-category__value {
   min-width: 0;
   flex: 1;
   font-size: 24rpx;
@@ -127,10 +226,18 @@ button.category-filter-button--active {
   white-space: nowrap;
 }
 
+.library-filter-category__chevron {
+  color: var(--color-text-muted);
+  flex: 0 0 auto;
+  font-size: 36rpx;
+  line-height: 1;
+}
+
 button.category-filter-retry {
-  width: 112rpx;
-  min-width: 112rpx;
-  min-height: 78rpx;
+  width: 104rpx;
+  min-width: 104rpx;
+  min-height: 72rpx;
+  margin: 0;
   color: var(--color-primary-dark);
   display: flex;
   align-items: center;
@@ -138,43 +245,30 @@ button.category-filter-retry {
   font-size: 23rpx;
 }
 
-.filter-tabs {
-  padding: 8rpx;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8rpx;
-}
-
-button.filter-tab {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 82rpx;
-  border-radius: 22rpx;
-  color: var(--color-text-secondary);
+.library-filter-actions {
+  min-height: 88rpx;
+  border-top: 2rpx solid var(--color-border);
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  font-size: 26rpx;
-  font-weight: 600;
+  gap: 16rpx;
 }
 
-button.filter-tab--active {
-  color: var(--color-primary-dark);
-  background: var(--color-primary-soft);
+.library-filter-actions__summary {
+  min-width: 0;
+  color: var(--color-text-muted);
+  flex: 1;
+  font-size: 23rpx;
 }
 
-.filter-tab__count {
-  min-width: 34rpx;
-  height: 34rpx;
-  padding: 0 8rpx;
-  border-radius: 17rpx;
-  background: rgba(255, 255, 255, 0.76);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 21rpx;
+button.library-filter-clear {
+  width: auto;
+  min-width: 136rpx;
+  min-height: 72rpx;
+  margin: 0;
+  color: var(--color-text-secondary);
+  border-radius: 20rpx;
+  background: #F5F1EC;
+  font-size: 23rpx;
 }
 
 .error-strip__action {
@@ -184,7 +278,7 @@ button.filter-tab--active {
 
 .card-list,
 .library-loading {
-  margin-top: 22rpx;
+  margin-top: 20rpx;
 }
 
 .word-card,

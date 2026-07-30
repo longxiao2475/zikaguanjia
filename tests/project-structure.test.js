@@ -149,8 +149,8 @@ test('所有选择按钮使用足够优先级的可见选中态', () => {
     [addWxss, 'button.source-option--active'],
     [pickerWxss, 'button.category-picker__chip--selected'],
     [pickerWxss, 'button.category-picker__header-button--primary'],
-    [libraryWxss, 'button.category-filter-button--active'],
     [libraryWxss, 'button.filter-tab--active'],
+    [libraryWxss, 'button.review-age-option--active'],
   ]) {
     const rule = readRule(stylesheet, selector);
     assert.match(rule, /color:/, `${selector} should change text color`);
@@ -310,7 +310,7 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxml.includes('<button\n        wx:if="{{selectionMode}}"\n        class="word-card__selector'), false);
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
   assert.equal(libraryWxml.includes('开始复习'), true);
-  assert.equal(libraryWxml.includes('category-filter-button'), true);
+  assert.equal(libraryWxml.includes('library-filter-category'), true);
   assert.equal(libraryWxml.includes('word-card__category'), true);
   assert.equal(libraryWxml.includes('showCategoryFilterPicker'), true);
   assert.equal(libraryWxml.includes('word-card-swipe'), true);
@@ -323,6 +323,30 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxss.includes('color: var(--color-text);'), true);
   assert.equal(libraryWxss.includes('caret-color: var(--color-primary-dark);'), true);
   assert.equal(libraryWxss.includes('width: 38rpx;'), true);
+});
+
+test('字卡库使用小程序风格统一筛选卡并让两个操作按钮右对齐', () => {
+  const libraryJs = read('miniprogram/pages/library/index.js');
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+
+  assert.equal(libraryWxml.includes('class="library-filter-card surface-card"'), true);
+  assert.equal(libraryWxml.includes('class="library-search surface-card"'), false);
+  assert.equal(libraryWxml.includes('class="category-filter-bar"'), false);
+  assert.equal(libraryWxml.includes('class="filter-tabs surface-card"'), false);
+  assert.equal(libraryWxml.includes('library-filter-section__label">状态'), true);
+  assert.equal(libraryWxml.includes('library-filter-section__label">未复习'), true);
+  assert.equal(libraryWxml.includes('bindtap="onSelectReviewAge"'), true);
+  assert.equal(libraryWxml.includes('bindtap="onClearAllFilters"'), true);
+  assert.equal(libraryWxml.includes('class="library-filter-category"'), true);
+  assert.equal(libraryJs.includes("{ value: 0, label: '不限' }"), true);
+  assert.equal(libraryJs.includes("{ value: 7, label: '7天未复习' }"), true);
+  assert.equal(libraryJs.includes("{ value: 30, label: '30天未复习' }"), true);
+  assert.match(libraryWxss, /button\.library-header__add[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*0;/);
+  assert.match(libraryWxss, /button\.library-select[\s\S]*?margin-left:\s*auto;[\s\S]*?margin-right:\s*0;/);
+  assert.equal(libraryWxss.includes('grid-template-columns: repeat(3, minmax(0, 1fr));'), true);
+  assert.equal(libraryWxss.includes('min-height: 88rpx;'), true);
+  assert.equal(libraryWxss.includes('overflow-x: scroll'), false);
 });
 
 test('录入和编辑字卡都提供分类选择入口', () => {

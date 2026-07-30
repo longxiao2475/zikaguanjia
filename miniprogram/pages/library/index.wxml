@@ -1,23 +1,10 @@
 <view class="page-shell library-page">
   <view class="library-header">
-    <view>
+    <view class="library-header__copy">
       <view class="library-header__title">孩子学过的字</view>
       <view class="library-header__text">按熟练度和复习时间自动排序</view>
     </view>
     <button class="secondary-button library-header__add" bindtap="onAddCard">+ 录入</button>
-  </view>
-
-  <view class="library-search surface-card">
-    <input
-      class="library-search__input"
-      value="{{keyword}}"
-      placeholder="搜索字或词"
-      placeholder-class="library-search__placeholder"
-      cursor-color="#E6704A"
-      confirm-type="search"
-      bindinput="onKeywordInput"
-    />
-    <button wx:if="{{keyword}}" class="library-search__clear" bindtap="onClearKeyword">清除</button>
   </view>
 
   <view class="library-tools">
@@ -27,25 +14,72 @@
     </button>
   </view>
 
-  <view class="category-filter-bar">
-    <button class="category-filter-button {{selectedCategoryFilterIds.length ? 'category-filter-button--active' : ''}}" bindtap="onOpenCategoryFilter" disabled="{{categoriesLoading}}">
-      <view class="category-filter-button__label">分类</view>
-      <view class="category-filter-button__value">{{categoriesLoading ? '加载中' : categoryFilterSummary}}</view>
-    </button>
-    <button wx:if="{{categoryError}}" class="category-filter-retry" bindtap="loadCategories">重试</button>
-  </view>
+  <view class="library-filter-card surface-card">
+    <view class="library-filter-search">
+      <input
+        class="library-search__input"
+        value="{{keyword}}"
+        placeholder="搜索字或词"
+        placeholder-class="library-search__placeholder"
+        cursor-color="#E6704A"
+        confirm-type="search"
+        bindinput="onKeywordInput"
+        aria-label="搜索字卡名称"
+      />
+      <button wx:if="{{keyword}}" class="library-search__clear" bindtap="onClearKeyword">清除</button>
+    </view>
 
-  <view class="filter-tabs surface-card">
-    <button
-      wx:for="{{tabs}}"
-      wx:key="value"
-      class="filter-tab {{selectedFilter === item.value ? 'filter-tab--active' : ''}}"
-      data-value="{{item.value}}"
-      bindtap="onSelectFilter"
-    >
-      <text>{{item.label}}</text>
-      <text class="filter-tab__count">{{item.count}}</text>
-    </button>
+    <view class="library-filter-section">
+      <view class="library-filter-section__label">状态</view>
+      <view class="filter-tabs">
+        <button
+          wx:for="{{tabs}}"
+          wx:key="value"
+          class="filter-tab {{selectedFilter === item.value ? 'filter-tab--active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onSelectFilter"
+          aria-role="radio"
+          aria-checked="{{selectedFilter === item.value}}"
+        >
+          <text>{{item.label}}</text>
+          <text class="filter-tab__count">{{item.count}}</text>
+        </button>
+      </view>
+    </view>
+
+    <view class="library-filter-section">
+      <view class="library-filter-section__label">未复习</view>
+      <view class="review-age-options">
+        <button
+          wx:for="{{reviewAgeOptions}}"
+          wx:key="value"
+          class="review-age-option {{reviewAgeDays === item.value ? 'review-age-option--active' : ''}}"
+          data-days="{{item.value}}"
+          bindtap="onSelectReviewAge"
+          aria-role="radio"
+          aria-checked="{{reviewAgeDays === item.value}}"
+        >{{item.label}}</button>
+      </view>
+    </view>
+
+    <view class="library-filter-section library-filter-section--category">
+      <button
+        class="library-filter-category"
+        bindtap="onOpenCategoryFilter"
+        disabled="{{categoriesLoading}}"
+        aria-label="选择字卡分类，当前{{categoryFilterSummary}}"
+      >
+        <view class="library-filter-category__label">分类</view>
+        <view class="library-filter-category__value">{{categoriesLoading ? '加载中' : (categoryError ? '分类加载失败' : categoryFilterSummary)}}</view>
+        <view class="library-filter-category__chevron">›</view>
+      </button>
+      <button wx:if="{{categoryError}}" class="category-filter-retry" bindtap="loadCategories">重试</button>
+    </view>
+
+    <view wx:if="{{hasActiveFilters}}" class="library-filter-actions">
+      <view class="library-filter-actions__summary">已应用组合筛选</view>
+      <button class="library-filter-clear" bindtap="onClearAllFilters">清空筛选</button>
+    </view>
   </view>
 
   <view wx:if="{{errorMessage}}" class="error-strip">
@@ -122,10 +156,10 @@
   </view>
 
   <view wx:else class="surface-card empty-state library-empty">
-    <view class="empty-state__title">{{keyword ? '没有找到相关字卡' : (selectedFilter === 'all' ? '还没有字卡' : '这个分类暂时为空')}}</view>
-    <view class="empty-state__text">{{keyword ? '换个字或词试试，也可以清空搜索。' : (selectedFilter === 'all' ? '录入孩子今天新学的字，系统会自动安排复习。' : '切换到“全部”看看其他字卡。')}}</view>
-    <button wx:if="{{keyword}}" class="secondary-button library-empty__button" bindtap="onClearKeyword">清空搜索</button>
-    <button wx:elif="{{selectedFilter === 'all'}}" class="primary-button library-empty__button" bindtap="onAddCard">录入第一个字</button>
+    <view class="empty-state__title">{{hasActiveFilters ? '没有符合筛选条件的字卡' : '还没有字卡'}}</view>
+    <view class="empty-state__text">{{hasActiveFilters ? '可以调整名称、状态、未复习时间或分类，也可以清空全部筛选。' : '录入孩子今天新学的字，系统会自动安排复习。'}}</view>
+    <button wx:if="{{hasActiveFilters}}" class="secondary-button library-empty__button" bindtap="onClearAllFilters">清空筛选</button>
+    <button wx:else class="primary-button library-empty__button" bindtap="onAddCard">录入第一个字</button>
   </view>
 
   <view wx:if="{{selectionMode}}" class="selection-bar">
