@@ -15,9 +15,19 @@ function dayNumber(value) {
   return Math.floor((toTimestamp(value) + SHANGHAI_OFFSET_MS) / DAY_MS);
 }
 
+function daysSince(value, today) {
+  if (!value) return Infinity;
+  return dayNumber(today) - dayNumber(value);
+}
+
+function matchesReviewAge(card, reviewAgeDays, today) {
+  const threshold = [7, 30].includes(Number(reviewAgeDays)) ? Number(reviewAgeDays) : 0;
+  return threshold === 0 || daysSince(card && card.lastReviewAt, today) >= threshold;
+}
+
 function isDue(card, today) {
   if (!card.lastReviewAt) return true;
-  const elapsedDays = dayNumber(today) - dayNumber(card.lastReviewAt);
+  const elapsedDays = daysSince(card.lastReviewAt, today);
   if (card.proficiency === 'unfamiliar') return true;
   if (card.proficiency === 'normal') return elapsedDays >= 2;
   if (card.proficiency === 'proficient') return elapsedDays >= 7;
@@ -45,7 +55,9 @@ function getReviewStats(cards) {
 }
 
 module.exports = {
+  daysSince,
   getReviewStats,
   getTodayReviewCards,
+  matchesReviewAge,
   sortCards,
 };

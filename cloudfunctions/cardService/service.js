@@ -1,6 +1,7 @@
 const {
   getReviewStats,
   getTodayReviewCards,
+  matchesReviewAge,
   sortCards,
 } = require('./review');
 
@@ -104,14 +105,25 @@ function createCardService(repository, options = {}) {
           || (includeUncategorized && cardCategoryIds.length === 0);
       })
       : allCards;
-    const todayCards = getTodayReviewCards(categoryCards, now());
-    const masteredCards = categoryCards.filter((card) => card.proficiency === 'proficient');
-    const filter = ['all', 'due', 'mastered'].includes(payload.filter) ? payload.filter : 'all';
-    const byFilter = filter === 'due' ? todayCards : filter === 'mastered' ? masteredCards : categoryCards;
     const keyword = normalizeContent(payload.keyword || '');
-    const filtered = keyword
-      ? byFilter.filter((card) => normalizeContent(card.normalizedContent || card.content).includes(keyword))
-      : byFilter;
+    const keywordCards = keyword
+      ? categoryCards.filter((card) => normalizeContent(card.normalizedContent || card.content).includes(keyword))
+      : categoryCards;
+    const reviewAgeDays = [7, 30].includes(Number(payload.reviewAgeDays))
+      ? Number(payload.reviewAgeDays)
+      : 0;
+    const currentTime = now();
+    const scopedCards = keywordCards.filter((card) => (
+      matchesReviewAge(card, reviewAgeDays, currentTime)
+    ));
+    const todayCards = getTodayReviewCards(scopedCards, currentTime);
+    const masteredCards = scopedCards.filter((card) => card.proficiency === 'proficient');
+    const filter = ['all', 'due', 'mastered'].includes(payload.filter) ? payload.filter : 'all';
+    const filtered = filter === 'due'
+      ? todayCards
+      : filter === 'mastered'
+        ? masteredCards
+        : scopedCards;
     const page = Math.max(1, Number(payload.page) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(payload.pageSize) || 20));
     const offset = (page - 1) * pageSize;
@@ -124,7 +136,7 @@ function createCardService(repository, options = {}) {
       total: filtered.length,
       hasMore: offset + items.length < filtered.length,
       counts: {
-        all: categoryCards.length,
+        all: scopedCards.length,
         due: todayCards.length,
         mastered: masteredCards.length,
       },

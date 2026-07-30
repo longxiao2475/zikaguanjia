@@ -197,7 +197,66 @@ test('列表按标准化后的汉字片段搜索并叠加筛选', async () => {
 
   assert.deepEqual(result.items.map((card) => card._id), ['a']);
   assert.equal(result.total, 1);
-  assert.deepEqual(result.counts, { all: 3, due: 2, mastered: 1 });
+  assert.deepEqual(result.counts, { all: 1, due: 1, mastered: 0 });
+});
+
+test('列表按未复习天数筛选并包含从未复习字卡', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'never', childId: 'child-1', content: '从未', normalizedContent: '从未', status: 'active', proficiency: 'normal', lastReviewAt: null },
+      { _id: 'day-6', childId: 'child-1', content: '六天', normalizedContent: '六天', status: 'active', proficiency: 'normal', lastReviewAt: '2026-07-24T04:00:00.000Z' },
+      { _id: 'day-7', childId: 'child-1', content: '七天', normalizedContent: '七天', status: 'active', proficiency: 'normal', lastReviewAt: '2026-07-23T04:00:00.000Z' },
+      { _id: 'day-29', childId: 'child-1', content: '二十九天', normalizedContent: '二十九天', status: 'active', proficiency: 'normal', lastReviewAt: '2026-07-01T04:00:00.000Z' },
+      { _id: 'day-30', childId: 'child-1', content: '三十天', normalizedContent: '三十天', status: 'active', proficiency: 'normal', lastReviewAt: '2026-06-30T04:00:00.000Z' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-30T04:00:00.000Z'),
+  });
+
+  const sevenDays = await service.list('openid-1', {
+    childId: 'child-1',
+    reviewAgeDays: 7,
+  });
+  const thirtyDays = await service.list('openid-1', {
+    childId: 'child-1',
+    reviewAgeDays: 30,
+  });
+  const invalid = await service.list('openid-1', {
+    childId: 'child-1',
+    reviewAgeDays: 14,
+  });
+
+  assert.deepEqual(sevenDays.items.map((card) => card._id), [
+    'never', 'day-30', 'day-29', 'day-7',
+  ]);
+  assert.deepEqual(thirtyDays.items.map((card) => card._id), ['never', 'day-30']);
+  assert.equal(invalid.total, 5);
+});
+
+test('状态数量随名称分类和未复习时间范围动态计算', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'never-apple', childId: 'child-1', content: '苹果', normalizedContent: '苹果', categoryIds: ['food'], status: 'active', proficiency: 'proficient', lastReviewAt: null },
+      { _id: 'old-juice', childId: 'child-1', content: '果汁', normalizedContent: '果汁', categoryIds: ['food'], status: 'active', proficiency: 'normal', lastReviewAt: '2026-07-20T04:00:00.000Z' },
+      { _id: 'recent-apple', childId: 'child-1', content: '苹果树', normalizedContent: '苹果树', categoryIds: ['food'], status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-24T04:00:00.000Z' },
+      { _id: 'plant-banana', childId: 'child-1', content: '香蕉', normalizedContent: '香蕉', categoryIds: ['plant'], status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-01T04:00:00.000Z' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-30T04:00:00.000Z'),
+  });
+
+  const result = await service.list('openid-1', {
+    childId: 'child-1',
+    filter: 'mastered',
+    keyword: '果',
+    categoryIds: ['food'],
+    reviewAgeDays: 7,
+  });
+
+  assert.deepEqual(result.items.map((card) => card._id), ['never-apple']);
+  assert.deepEqual(result.counts, { all: 2, due: 2, mastered: 1 });
 });
 
 test('列表分类多选使用 OR 并可同时包含未分类字卡', async () => {
