@@ -87,14 +87,20 @@ test('cardService 仓储只列出活动字卡并写入更新时间', async () =>
       { _id: 'a', childId: 'c1', status: 'active' },
       { _id: 'b', childId: 'c1', status: 'deleted' },
     ],
+    categories: [
+      { _id: 'category-a', childId: 'c1', status: 'active' },
+      { _id: 'category-b', childId: 'c1', status: 'active' },
+    ],
   });
   const repository = createCardRepository(db);
 
   const listed = await repository.listActiveCards('c1');
+  const categories = await repository.findCategoriesByIds(['category-b', 'missing', 'category-a']);
   const created = await repository.createCard({ childId: 'c1', status: 'active' });
   const updated = await repository.updateCard(created._id, { proficiency: 'normal' });
 
   assert.deepEqual(listed.map((item) => item._id), ['a']);
+  assert.deepEqual(categories.map((item) => item._id), ['category-b', 'category-a']);
   assert.equal(created.createdAt, 'SERVER_DATE');
   assert.equal(updated.updatedAt, 'SERVER_DATE');
   assert.equal(updated.proficiency, 'normal');

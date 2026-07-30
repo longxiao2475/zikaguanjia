@@ -9,6 +9,7 @@ const {
 function createMemoryRepository(seed = {}) {
   const children = [...(seed.children || [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }])];
   const cards = [...(seed.cards || [])];
+  const categories = [...(seed.categories || [])];
 
   return {
     cards,
@@ -39,6 +40,9 @@ function createMemoryRepository(seed = {}) {
       Object.assign(card, updates);
       return card;
     },
+    async findCategoriesByIds(ids) {
+      return ids.map((id) => categories.find((item) => item._id === id) || null).filter(Boolean);
+    },
   };
 }
 
@@ -57,6 +61,51 @@ test('新学字卡默认不熟，已学过字卡默认一般', async () => {
   assert.equal(learned.proficiency, 'unfamiliar');
   assert.equal(reviewed.proficiency, 'normal');
   assert.equal(learned.type, 'char');
+  assert.deepEqual(learned.categoryIds, []);
+});
+
+test('创建和更新字卡会保存去重后的分类并校验归属', async () => {
+  const repository = createMemoryRepository({
+    categories: [
+      { _id: 'category-1', childId: 'child-1', status: 'active' },
+      { _id: 'category-2', childId: 'child-1', status: 'active' },
+      { _id: 'category-foreign', childId: 'child-2', status: 'active' },
+      { _id: 'category-inactive', childId: 'child-1', status: 'inactive' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const created = await service.create('openid-1', {
+    childId: 'child-1',
+    content: '汽车',
+    source: 'new',
+    categoryIds: ['category-1', 'category-1', 'category-2'],
+  });
+  assert.deepEqual(created.categoryIds, ['category-1', 'category-2']);
+
+  const updated = await service.update('openid-1', {
+    childId: 'child-1',
+    cardId: created._id,
+    categoryIds: ['category-2'],
+  });
+  assert.deepEqual(updated.categoryIds, ['category-2']);
+
+  await assert.rejects(
+    () => service.create('openid-1', {
+      childId: 'child-1',
+      content: '公交车',
+      categoryIds: ['category-foreign'],
+    }),
+    (error) => error.code === 'CATEGORY_INVALID',
+  );
+  await assert.rejects(
+    () => service.update('openid-1', {
+      childId: 'child-1',
+      cardId: created._id,
+      categoryIds: ['category-inactive'],
+    }),
+    (error) => error.code === 'CATEGORY_INVALID',
+  );
 });
 
 test('同一孩子不能重复创建活动字卡', async () => {
@@ -149,6 +198,33 @@ test('列表按标准化后的汉字片段搜索并叠加筛选', async () => {
   assert.deepEqual(result.items.map((card) => card._id), ['a']);
   assert.equal(result.total, 1);
   assert.deepEqual(result.counts, { all: 3, due: 2, mastered: 1 });
+});
+
+test('列表分类多选使用 OR 并可同时包含未分类字卡', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'a', childId: 'child-1', content: '汽车', normalizedContent: '汽车', categoryIds: ['traffic'], status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+      { _id: 'b', childId: 'child-1', content: '苹果', normalizedContent: '苹果', categoryIds: ['food', 'plant'], status: 'active', proficiency: 'normal', lastReviewAt: null },
+      { _id: 'c', childId: 'child-1', content: '桌子', normalizedContent: '桌子', categoryIds: ['furniture'], status: 'active', proficiency: 'proficient', lastReviewAt: null },
+      { _id: 'd', childId: 'child-1', content: '测试', normalizedContent: '测试', status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const selected = await service.list('openid-1', {
+    childId: 'child-1',
+    categoryIds: ['traffic', 'plant'],
+  });
+  assert.deepEqual(selected.items.map((card) => card._id), ['a', 'b']);
+  assert.deepEqual(selected.counts, { all: 2, due: 2, mastered: 0 });
+
+  const withUncategorized = await service.list('openid-1', {
+    childId: 'child-1',
+    categoryIds: ['furniture'],
+    includeUncategorized: true,
+  });
+  assert.deepEqual(withUncategorized.items.map((card) => card._id), ['d', 'c']);
+  assert.deepEqual(withUncategorized.counts, { all: 2, due: 2, mastered: 1 });
 });
 
 test('按 ID 补查只返回当前孩子的活动字卡并保持请求顺序', async () => {

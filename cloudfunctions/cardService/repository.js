@@ -2,6 +2,7 @@ const BATCH_SIZE = 100;
 
 function createCardRepository(db) {
   const cards = db.collection('cards');
+  const categories = db.collection('categories');
   const children = db.collection('children');
 
   async function readCard(id) {
@@ -52,6 +53,15 @@ function createCardRepository(db) {
 
     async findCardById(id) {
       return readCard(id);
+    },
+
+    async findCategoriesByIds(ids) {
+      const results = await Promise.all((ids || []).map(async (id) => {
+        if (!id) return null;
+        const result = await categories.doc(id).get();
+        return result.data || null;
+      }));
+      return results.filter(Boolean);
     },
 
     async updateCard(id, updates) {

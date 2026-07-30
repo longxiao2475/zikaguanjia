@@ -23,6 +23,13 @@ function normalizeCustomWords(value) {
   return [...new Set(value.map(normalizeContent).filter(Boolean))].slice(0, 20);
 }
 
+function normalizeCategoryIds(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((id) => typeof id === 'string' && id.trim())
+    .map((id) => id.trim()))].slice(0, 10);
+}
+
 function createCardService(repository, options = {}) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
   const now = options.now || (() => new Date());
@@ -44,9 +51,23 @@ function createCardService(repository, options = {}) {
     return normalizedContent;
   }
 
+  async function validateCategoryIds(childId, value) {
+    const categoryIds = normalizeCategoryIds(value);
+    if (!categoryIds.length) return [];
+    const categories = await repository.findCategoriesByIds(categoryIds);
+    const validIds = new Set(categories
+      .filter((category) => category.childId === childId && category.status === 'active')
+      .map((category) => category._id));
+    if (categoryIds.some((id) => !validIds.has(id))) {
+      throw businessError('CATEGORY_INVALID', '所选分类已失效，请重新选择');
+    }
+    return categoryIds;
+  }
+
   async function create(openid, payload = {}) {
     await assertChildOwnership(openid, payload.childId);
     const normalizedContent = validateContent(payload.content);
+    const categoryIds = await validateCategoryIds(payload.childId, payload.categoryIds);
     const source = VALID_SOURCES.has(payload.source) ? payload.source : 'new';
     const duplicate = await repository.findActiveByNormalized(payload.childId, normalizedContent);
     if (duplicate) throw businessError('CARD_DUPLICATE', '这个字卡已经存在');
@@ -63,6 +84,7 @@ function createCardService(repository, options = {}) {
       lastReviewAt: null,
       reviewCount: 0,
       customWords: [],
+      categoryIds,
       status: 'active',
       deletedAt: null,
     });
@@ -71,10 +93,21 @@ function createCardService(repository, options = {}) {
   async function list(openid, payload = {}) {
     await assertChildOwnership(openid, payload.childId);
     const allCards = sortCards(await repository.listActiveCards(payload.childId));
-    const todayCards = getTodayReviewCards(allCards, now());
-    const masteredCards = allCards.filter((card) => card.proficiency === 'proficient');
+    const categoryIds = normalizeCategoryIds(payload.categoryIds);
+    const includeUncategorized = payload.includeUncategorized === true;
+    const hasCategoryFilter = categoryIds.length > 0 || includeUncategorized;
+    const categoryIdSet = new Set(categoryIds);
+    const categoryCards = hasCategoryFilter
+      ? allCards.filter((card) => {
+        const cardCategoryIds = normalizeCategoryIds(card.categoryIds);
+        return cardCategoryIds.some((id) => categoryIdSet.has(id))
+          || (includeUncategorized && cardCategoryIds.length === 0);
+      })
+      : allCards;
+    const todayCards = getTodayReviewCards(categoryCards, now());
+    const masteredCards = categoryCards.filter((card) => card.proficiency === 'proficient');
     const filter = ['all', 'due', 'mastered'].includes(payload.filter) ? payload.filter : 'all';
-    const byFilter = filter === 'due' ? todayCards : filter === 'mastered' ? masteredCards : allCards;
+    const byFilter = filter === 'due' ? todayCards : filter === 'mastered' ? masteredCards : categoryCards;
     const keyword = normalizeContent(payload.keyword || '');
     const filtered = keyword
       ? byFilter.filter((card) => normalizeContent(card.normalizedContent || card.content).includes(keyword))
@@ -91,7 +124,7 @@ function createCardService(repository, options = {}) {
       total: filtered.length,
       hasMore: offset + items.length < filtered.length,
       counts: {
-        all: allCards.length,
+        all: categoryCards.length,
         due: todayCards.length,
         mastered: masteredCards.length,
       },
@@ -159,6 +192,9 @@ function createCardService(repository, options = {}) {
       updates.source = payload.source;
     }
     if (payload.customWords !== undefined) updates.customWords = normalizeCustomWords(payload.customWords);
+    if (payload.categoryIds !== undefined) {
+      updates.categoryIds = await validateCategoryIds(payload.childId, payload.categoryIds);
+    }
     return repository.updateCard(card._id, updates);
   }
 
@@ -187,5 +223,6 @@ function createCardService(repository, options = {}) {
 module.exports = {
   businessError,
   createCardService,
+  normalizeCategoryIds,
   normalizeContent,
 };
