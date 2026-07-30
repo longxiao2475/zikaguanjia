@@ -83,7 +83,7 @@ test('首次读取为孩子生成默认分类且后续读取不会重复生成',
   assert.equal(first.every((item) => item.isDefault && item.status === 'active'), true);
 });
 
-test('分类校准停用未引用旧默认分类并保留已引用和自定义分类', async () => {
+test('分类校准停用未引用旧默认分类和汽车别名并保留其他自定义分类', async () => {
   const repository = createMemoryRepository({
     categories: [
       {
@@ -102,6 +102,10 @@ test('分类校准停用未引用旧默认分类并保留已引用和自定义�
         _id: 'car', childId: 'child-1', name: '汽车', normalizedName: '汽车',
         sortOrder: 24, isDefault: false, status: 'active',
       },
+      {
+        _id: 'sport', childId: 'child-1', name: '运动', normalizedName: '运动',
+        sortOrder: 25, isDefault: false, status: 'active',
+      },
     ],
     cards: [{
       _id: 'card-1', childId: 'child-1', categoryIds: ['fruit'], status: 'active',
@@ -115,11 +119,13 @@ test('分类校准停用未引用旧默认分类并保留已引用和自定义�
 
   assert.deepEqual(first.slice(0, 8).map((item) => item.name), DEFAULT_CATEGORY_NAMES);
   assert.equal(first.some((item) => item.name === '水果'), true);
-  assert.equal(first.some((item) => item.name === '汽车'), true);
+  assert.equal(first.some((item) => item.name === '汽车'), false);
+  assert.equal(first.some((item) => item.name === '运动'), true);
   assert.equal(first.some((item) => item.name === '玩具'), false);
   assert.equal(repository.categories.find((item) => item._id === 'toy').status, 'inactive');
   assert.equal(repository.categories.find((item) => item._id === 'fruit').status, 'active');
-  assert.equal(repository.categories.find((item) => item._id === 'car').status, 'active');
+  assert.equal(repository.categories.find((item) => item._id === 'car').status, 'inactive');
+  assert.equal(repository.categories.find((item) => item._id === 'sport').status, 'active');
   assert.equal(repository.categories.length, countAfterFirst);
   assert.deepEqual(second.map((item) => item._id), first.map((item) => item._id));
 });

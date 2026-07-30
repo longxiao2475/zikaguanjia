@@ -9,6 +9,10 @@ const DEFAULT_CATEGORY_NAMES = Object.freeze([
   '日常用品',
 ]);
 
+const LEGACY_CATEGORY_ALIASES = Object.freeze({
+  汽车: '交通工具',
+});
+
 function businessError(code, message) {
   const error = new Error(message || code);
   error.code = code;
@@ -74,7 +78,10 @@ function createCategoryService(repository) {
     let nextSortOrder = DEFAULT_CATEGORY_NAMES.length;
     for (const category of allCategories) {
       if (DEFAULT_CATEGORY_NAMES.includes(category.normalizedName)) continue;
-      if (category.isDefault) {
+      const aliasTarget = LEGACY_CATEGORY_ALIASES[category.normalizedName];
+      const shouldRetireWhenUnused = category.isDefault
+        || DEFAULT_CATEGORY_NAMES.includes(aliasTarget);
+      if (shouldRetireWhenUnused) {
         const references = await repository.countActiveCardReferences(
           payload.childId,
           category._id,
@@ -138,6 +145,7 @@ function createCategoryService(repository) {
 
 module.exports = {
   DEFAULT_CATEGORY_NAMES,
+  LEGACY_CATEGORY_ALIASES,
   businessError,
   createCategoryService,
   normalizeCategoryName,
