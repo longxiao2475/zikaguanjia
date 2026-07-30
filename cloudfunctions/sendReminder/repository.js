@@ -6,6 +6,8 @@ function isDuplicateError(error) {
 }
 
 function createReminderRepository(db) {
+  const reminderLogs = db.collection('reminder_logs');
+
   async function listAll(collection, query) {
     const items = [];
     let offset = 0;
@@ -16,6 +18,23 @@ function createReminderRepository(db) {
       offset += BATCH_SIZE;
     }
     return items;
+  }
+
+  async function readReminderLog(logId) {
+    const result = await reminderLogs.doc(logId).get();
+    return result.data || null;
+  }
+
+  async function findReminderLog(query) {
+    const result = await reminderLogs.where(query).limit(1).get();
+    return result.data[0] || null;
+  }
+
+  async function updateReminderLog(logId, data) {
+    await reminderLogs.doc(logId).update({
+      data: { ...data, updatedAt: db.serverDate() },
+    });
+    return readReminderLog(logId);
   }
 
   return {
@@ -32,40 +51,73 @@ function createReminderRepository(db) {
       return result.data[0] || null;
     },
 
+    findReminderLog,
+
     async createReminderLog(data) {
       try {
         const createdAt = db.serverDate();
-        const result = await db.collection('reminder_logs').add({
+        const result = await reminderLogs.add({
           data: { ...data, createdAt, updatedAt: createdAt },
         });
         return { duplicate: false, log: { _id: result._id, ...data } };
       } catch (error) {
         if (!isDuplicateError(error)) throw error;
-        return { duplicate: true, log: null };
+        return {
+          duplicate: true,
+          log: await findReminderLog({
+            childId: data.childId,
+            bizDate: data.bizDate,
+            templateId: data.templateId,
+          }),
+        };
       }
     },
 
-    async markSkipped(logId, reason) {
-      await db.collection('reminder_logs').doc(logId).update({
-        data: { status: 'skipped', skipReason: reason, updatedAt: db.serverDate() },
-      });
-      return { _id: logId, status: 'skipped', skipReason: reason };
-    },
-
-    async markFailed(logId, error) {
-      await db.collection('reminder_logs').doc(logId).update({
+    async beginAttempt(logId, snapshot) {
+      await reminderLogs.doc(logId).update({
         data: {
-          status: 'failed',
-          errorCode: String(error.code || error.errCode || 'SEND_FAILED'),
-          errorMessage: String(error.message || '订阅消息发送失败').slice(0, 200),
+          ...snapshot,
+          status: 'pending',
+          attemptCount: db.command.inc(1),
+          lastAttemptAt: db.serverDate(),
+          skipReason: null,
+          errorCode: null,
+          errorMessage: null,
           updatedAt: db.serverDate(),
         },
       });
-      return { _id: logId, status: 'failed' };
+      return readReminderLog(logId);
+    },
+
+    async markNoDueCards(logId) {
+      return updateReminderLog(logId, {
+        status: 'no_due_cards',
+        skipReason: 'no_due_cards',
+      });
+    },
+
+    async markQuotaEmpty(logId) {
+      return updateReminderLog(logId, {
+        status: 'quota_empty',
+        skipReason: 'quota_empty',
+      });
+    },
+
+    async markFailed(logId, error) {
+      return updateReminderLog(logId, {
+        status: 'failed',
+        errorCode: String(error.code || error.errCode || 'SEND_FAILED'),
+        errorMessage: String(error.message || '订阅消息发送失败').slice(0, 200),
+      });
     },
 
     async consumeAndMarkSent({ logId, openid, templateId }) {
       return db.runTransaction(async (transaction) => {
+        const logResult = await transaction.collection('reminder_logs').doc(logId).get();
+        const log = logResult.data || null;
+        if (log && log.status === 'sent') {
+          return { sent: false, alreadySent: true };
+        }
         const userResult = await transaction.collection('users')
           .where({ openid, status: 'active' })
           .limit(1)
@@ -73,7 +125,11 @@ function createReminderRepository(db) {
         const user = userResult.data[0] || null;
         if (!user || Number(user.subscriptionQuota || 0) <= 0) {
           await transaction.collection('reminder_logs').doc(logId).update({
-            data: { status: 'skipped', skipReason: 'quota_empty', updatedAt: db.serverDate() },
+            data: {
+              status: 'quota_empty',
+              skipReason: 'quota_empty',
+              updatedAt: db.serverDate(),
+            },
           });
           return { sent: false, quota: 0 };
         }
@@ -98,6 +154,9 @@ function createReminderRepository(db) {
         await transaction.collection('reminder_logs').doc(logId).update({
           data: {
             status: 'sent',
+            skipReason: null,
+            errorCode: null,
+            errorMessage: null,
             sentAt,
             subscriptionEventId: eventResult._id,
             updatedAt: sentAt,
@@ -118,4 +177,3 @@ module.exports = {
   createReminderRepository,
   isDuplicateError,
 };
-

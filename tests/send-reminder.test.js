@@ -53,6 +53,13 @@ function createMemoryRepository(seed = {}) {
     async findUserByOpenid(openid) {
       return users.find((user) => user.openid === openid && user.status === 'active') || null;
     },
+    async findReminderLog({ childId, bizDate, templateId }) {
+      return logs.find((log) => (
+        log.childId === childId
+        && log.bizDate === bizDate
+        && log.templateId === templateId
+      )) || null;
+    },
     async createReminderLog(data) {
       const existing = logs.find((log) => (
         log.childId === data.childId
@@ -64,9 +71,27 @@ function createMemoryRepository(seed = {}) {
       logs.push(log);
       return { duplicate: false, log };
     },
-    async markSkipped(logId, reason) {
+    async beginAttempt(logId, snapshot) {
       const log = logs.find((item) => item._id === logId);
-      Object.assign(log, { status: 'skipped', skipReason: reason });
+      Object.assign(log, {
+        ...snapshot,
+        status: 'pending',
+        attemptCount: Number(log.attemptCount || 0) + 1,
+        lastAttemptAt: 'SERVER_DATE',
+        skipReason: null,
+        errorCode: null,
+        errorMessage: null,
+      });
+      return log;
+    },
+    async markNoDueCards(logId) {
+      const log = logs.find((item) => item._id === logId);
+      Object.assign(log, { status: 'no_due_cards', skipReason: 'no_due_cards' });
+      return log;
+    },
+    async markQuotaEmpty(logId) {
+      const log = logs.find((item) => item._id === logId);
+      Object.assign(log, { status: 'quota_empty', skipReason: 'quota_empty' });
       return log;
     },
     async markFailed(logId, error) {
@@ -82,7 +107,7 @@ function createMemoryRepository(seed = {}) {
       const user = users.find((item) => item.openid === openid && item.status === 'active');
       const log = logs.find((item) => item._id === logId);
       if (!user || Number(user.subscriptionQuota || 0) <= 0) {
-        Object.assign(log, { status: 'skipped', skipReason: 'quota_empty' });
+        Object.assign(log, { status: 'quota_empty', skipReason: 'quota_empty' });
         return { sent: false, quota: 0 };
       }
       user.subscriptionQuota -= 1;
@@ -119,12 +144,14 @@ function createSender() {
   };
 }
 
-test('上海业务时间和提醒小时判断稳定', () => {
+test('上海业务时间和到点后提醒判断稳定', () => {
   const context = getShanghaiContext(new Date('2026-07-26T12:05:00.000Z'));
   assert.deepEqual(context, {
     bizDate: '2026-07-26', dayOfWeek: 0, hour: 20, dateTime: '2026-07-26 20:05',
   });
-  assert.equal(shouldRemindChild({ studyDays: [0], reminderTime: '20:30' }, context), true);
+  assert.equal(shouldRemindChild({ studyDays: [0], reminderTime: '20:00' }, context), true);
+  assert.equal(shouldRemindChild({ studyDays: [0], reminderTime: '19:00' }, context), true);
+  assert.equal(shouldRemindChild({ studyDays: [0], reminderTime: '21:00' }, context), false);
   assert.equal(shouldRemindChild({ studyDays: [1], reminderTime: '20:00' }, context), false);
 });
 
@@ -135,7 +162,9 @@ test('到认字日和提醒小时发送真实待复习数并成功扣额度', as
 
   const result = await service.run(new Date('2026-07-26T12:05:00.000Z'));
 
-  assert.deepEqual(result, { matched: 1, sent: 1, skipped: 0, failed: 0, duplicate: 0 });
+  assert.deepEqual(result, {
+    matched: 1, sent: 1, skipped: 0, failed: 0, alreadySent: 0,
+  });
   assert.equal(sender.calls.length, 1);
   assert.equal(sender.calls[0].touser, 'openid-1');
   assert.equal(sender.calls[0].templateId, TEMPLATE_ID);
@@ -148,50 +177,92 @@ test('到认字日和提醒小时发送真实待复习数并成功扣额度', as
   assert.equal(repository.events[0].type, 'consume');
   assert.equal(repository.logs[0].status, 'sent');
   assert.equal(repository.logs[0].dueCardCount, 2);
+  assert.equal(repository.logs[0].attemptCount, 1);
 });
 
-test('发送失败不扣额度，重复业务键不重发', async () => {
+test('发送失败不扣额度并在下一小时补发，成功后当天不再发送', async () => {
   const repository = createMemoryRepository();
   const sender = createSender();
   sender.fail = true;
   const service = createReminderService({ repository, sender, templateId: TEMPLATE_ID });
-  const now = new Date('2026-07-26T12:05:00.000Z');
 
-  const first = await service.run(now);
+  const first = await service.run(new Date('2026-07-26T12:05:00.000Z'));
   sender.fail = false;
-  const second = await service.run(now);
+  const second = await service.run(new Date('2026-07-26T13:05:00.000Z'));
+  const third = await service.run(new Date('2026-07-26T14:05:00.000Z'));
 
   assert.equal(first.failed, 1);
-  assert.equal(second.duplicate, 1);
-  assert.equal(sender.calls.length, 1);
-  assert.equal(repository.users[0].subscriptionQuota, 2);
-  assert.equal(repository.events.length, 0);
-  assert.equal(repository.logs[0].status, 'failed');
+  assert.equal(second.sent, 1);
+  assert.equal(third.alreadySent, 1);
+  assert.equal(sender.calls.length, 2);
+  assert.equal(repository.users[0].subscriptionQuota, 1);
+  assert.equal(repository.events.length, 1);
+  assert.equal(repository.logs.length, 1);
+  assert.equal(repository.logs[0].status, 'sent');
+  assert.equal(repository.logs[0].attemptCount, 2);
 });
 
-test('无待复习字卡或额度为零时记录 skipped 且不发送', async () => {
-  const noDueRepository = createMemoryRepository({
+test('无待复习字卡时下一小时重新计算并补发', async () => {
+  const repository = createMemoryRepository({
     cards: [{
       _id: 'p1', ownerOpenid: 'openid-1', childId: 'child-1', content: '天',
       proficiency: 'proficient', lastReviewAt: '2026-07-25T04:00:00.000Z', status: 'active',
     }],
   });
-  const noDueSender = createSender();
-  await createReminderService({ repository: noDueRepository, sender: noDueSender }).run(
-    new Date('2026-07-26T12:05:00.000Z'),
-  );
-  assert.equal(noDueRepository.logs[0].skipReason, 'no_due_cards');
-  assert.equal(noDueSender.calls.length, 0);
+  const sender = createSender();
+  const service = createReminderService({ repository, sender });
 
-  const noQuotaRepository = createMemoryRepository({
+  await service.run(new Date('2026-07-26T12:05:00.000Z'));
+  assert.equal(repository.logs[0].skipReason, 'no_due_cards');
+  assert.equal(sender.calls.length, 0);
+
+  repository.cards.push({
+    _id: 'new-card', ownerOpenid: 'openid-1', childId: 'child-1', content: '新',
+    proficiency: 'unfamiliar', lastReviewAt: null, status: 'active',
+  });
+  const retried = await service.run(new Date('2026-07-26T13:05:00.000Z'));
+
+  assert.equal(retried.sent, 1);
+  assert.equal(sender.calls.length, 1);
+  assert.equal(repository.logs[0].attemptCount, 2);
+});
+
+test('额度为零时补充额度后下一小时发送', async () => {
+  const repository = createMemoryRepository({
     users: [{ _id: 'u1', openid: 'openid-1', subscriptionQuota: 0, status: 'active' }],
   });
-  const noQuotaSender = createSender();
-  await createReminderService({ repository: noQuotaRepository, sender: noQuotaSender }).run(
-    new Date('2026-07-26T12:05:00.000Z'),
-  );
-  assert.equal(noQuotaRepository.logs[0].skipReason, 'quota_empty');
-  assert.equal(noQuotaSender.calls.length, 0);
+  const sender = createSender();
+  const service = createReminderService({ repository, sender });
+
+  await service.run(new Date('2026-07-26T12:05:00.000Z'));
+  assert.equal(repository.logs[0].skipReason, 'quota_empty');
+  assert.equal(sender.calls.length, 0);
+
+  repository.users[0].subscriptionQuota = 1;
+  const retried = await service.run(new Date('2026-07-26T13:05:00.000Z'));
+
+  assert.equal(retried.sent, 1);
+  assert.equal(sender.calls.length, 1);
+  assert.equal(repository.users[0].subscriptionQuota, 0);
+  assert.equal(repository.logs[0].attemptCount, 2);
+});
+
+test('次日重新建立日志并允许再次发送', async () => {
+  const repository = createMemoryRepository({
+    children: [{
+      _id: 'child-1', ownerOpenid: 'openid-1', status: 'active', reminderEnabled: true,
+      reminderTime: '20:00', studyDays: [0, 1],
+    }],
+  });
+  const sender = createSender();
+  const service = createReminderService({ repository, sender });
+
+  await service.run(new Date('2026-07-26T12:05:00.000Z'));
+  const nextDay = await service.run(new Date('2026-07-27T12:05:00.000Z'));
+
+  assert.equal(nextDay.sent, 1);
+  assert.equal(repository.logs.length, 2);
+  assert.equal(sender.calls.length, 2);
 });
 
 test('模板内容限制为 20 个字符', () => {

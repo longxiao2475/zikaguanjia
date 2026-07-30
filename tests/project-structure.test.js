@@ -247,6 +247,15 @@ test('Day 4 和 Day 5 云函数结构与消息字段齐全', () => {
   assert.equal(subscriptionService.includes('38gNuA8j_S9YEP-incMBQnGnjVE6WxP1Lm8NRRPngkM'), true);
 });
 
+test('提醒云函数配置每小时定时触发器', () => {
+  const config = JSON.parse(read('cloudfunctions/sendReminder/config.json'));
+  assert.deepEqual(config.triggers, [{
+    name: 'hourlyReminder',
+    type: 'timer',
+    config: '0 0 * * * * *',
+  }]);
+});
+
 test('首页同时包含认字日兜底和额度预警入口', () => {
   const indexJs = read('miniprogram/pages/index/index.js');
   const indexWxml = read('miniprogram/pages/index/index.wxml');

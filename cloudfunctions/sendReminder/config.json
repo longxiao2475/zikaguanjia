@@ -1,1 +1,9 @@
-{}
+{
+  "triggers": [
+    {
+      "name": "hourlyReminder",
+      "type": "timer",
+      "config": "0 0 * * * * *"
+    }
+  ]
+}

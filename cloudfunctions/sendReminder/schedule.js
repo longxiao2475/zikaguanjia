@@ -29,7 +29,11 @@ function getShanghaiContext(value = new Date()) {
 function shouldRemindChild(child, context) {
   const studyDays = Array.isArray(child && child.studyDays) ? child.studyDays : [];
   const reminderHour = Number(String(child && child.reminderTime || '').slice(0, 2));
-  return studyDays.includes(context.dayOfWeek) && reminderHour === context.hour;
+  return studyDays.includes(context.dayOfWeek)
+    && Number.isInteger(reminderHour)
+    && reminderHour >= 0
+    && reminderHour <= 23
+    && context.hour >= reminderHour;
 }
 
 function shanghaiDayNumber(value) {
@@ -76,4 +80,3 @@ module.exports = {
   toTimestamp,
   truncateText,
 };
-
