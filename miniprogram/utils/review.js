@@ -27,6 +27,11 @@ function daysSince(value, today) {
   return shanghaiDayNumber(today) - shanghaiDayNumber(value);
 }
 
+function matchesReviewAge(card, reviewAgeDays, today = new Date()) {
+  const threshold = [7, 30].includes(Number(reviewAgeDays)) ? Number(reviewAgeDays) : 0;
+  return threshold === 0 || daysSince(card && card.lastReviewAt, today) >= threshold;
+}
+
 function isDue(card, today = new Date()) {
   if (!card || card.status === 'deleted') return false;
   if (!card.lastReviewAt) return true;
@@ -79,6 +84,7 @@ module.exports = {
   getTodayReviewCards,
   isDue,
   isStudyDay,
+  matchesReviewAge,
   sortCards,
   toTimestamp,
 };

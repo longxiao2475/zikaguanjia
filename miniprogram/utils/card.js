@@ -16,6 +16,7 @@ async function listCards(payload) {
     && !String(payload.keyword || '').trim()
     && !(Array.isArray(payload.categoryIds) && payload.categoryIds.length)
     && payload.includeUncategorized !== true
+    && Number(payload.reviewAgeDays || 0) === 0
     && Number(payload.page || 1) === 1) {
     cache.setCards(result.items || []);
     cache.setLastSyncAt(Date.now());

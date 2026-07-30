@@ -5,6 +5,7 @@ const {
   getTodayReviewCards,
   getReviewStats,
   isStudyDay,
+  matchesReviewAge,
   sortCards,
 } = require('../miniprogram/utils/review');
 
@@ -39,6 +40,25 @@ test('一般字卡满两天、熟练字卡满七天才进入复习', () => {
     getTodayReviewCards(cards, TODAY).map((card) => card._id),
     ['normal-2', 'proficient-7'],
   );
+});
+
+test('未复习天数筛选包含从未复习并按上海自然日计算', () => {
+  const today = new Date('2026-07-30T04:00:00.000Z');
+
+  assert.equal(matchesReviewAge({ lastReviewAt: null }, 30, today), true);
+  assert.equal(
+    matchesReviewAge({ lastReviewAt: '2026-07-23T04:00:00.000Z' }, 7, today),
+    true,
+  );
+  assert.equal(
+    matchesReviewAge({ lastReviewAt: '2026-07-24T04:00:00.000Z' }, 7, today),
+    false,
+  );
+  assert.equal(
+    matchesReviewAge({ lastReviewAt: '2026-07-30T15:59:59.000Z' }, 7, today),
+    false,
+  );
+  assert.equal(matchesReviewAge({ lastReviewAt: null }, 14, today), true);
 });
 
 test('排序按不熟、一般、熟练，同档按最久未复习优先', () => {
