@@ -106,7 +106,7 @@ button.category-filter-button {
   text-align: left;
 }
 
-.category-filter-button--active {
+button.category-filter-button--active {
   border-color: rgba(255, 138, 101, 0.38);
   color: var(--color-primary-dark);
   background: var(--color-primary-soft);
@@ -160,7 +160,7 @@ button.filter-tab {
   font-weight: 600;
 }
 
-.filter-tab--active {
+button.filter-tab--active {
   color: var(--color-primary-dark);
   background: var(--color-primary-soft);
 }

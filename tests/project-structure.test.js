@@ -139,6 +139,25 @@ test('原生按钮网格允许列收缩且不会横向溢出', () => {
   }
 });
 
+test('所有选择按钮使用足够优先级的可见选中态', () => {
+  const addWxss = read('miniprogram/pages/add/index.wxss');
+  const pickerWxss = read('miniprogram/components/category-picker/index.wxss');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+
+  for (const [stylesheet, selector] of [
+    [addWxss, 'button.mode-tab--active'],
+    [addWxss, 'button.source-option--active'],
+    [pickerWxss, 'button.category-picker__chip--selected'],
+    [pickerWxss, 'button.category-picker__header-button--primary'],
+    [libraryWxss, 'button.category-filter-button--active'],
+    [libraryWxss, 'button.filter-tab--active'],
+  ]) {
+    const rule = readRule(stylesheet, selector);
+    assert.match(rule, /color:/, `${selector} should change text color`);
+    assert.match(rule, /background:/, `${selector} should change background`);
+  }
+});
+
 test('编辑字卡完整显示三个熟练度且按钮文字垂直居中', () => {
   const libraryWxml = read('miniprogram/pages/library/index.wxml');
   const libraryWxss = read('miniprogram/pages/library/index.wxss');

@@ -51,8 +51,9 @@ button.category-picker__header-button {
   font-size: 26rpx;
 }
 
-.category-picker__header-button--primary {
+button.category-picker__header-button--primary {
   color: #E6704A;
+  background: transparent;
   font-weight: 650;
 }
 
@@ -78,7 +79,7 @@ button.category-picker__chip {
   font-size: 25rpx;
 }
 
-.category-picker__chip--selected {
+button.category-picker__chip--selected {
   border-color: #FF8A65;
   color: #C75C39;
   background: #FFF0EB;

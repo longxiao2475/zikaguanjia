@@ -39,7 +39,7 @@ button.mode-tab {
   font-weight: 600;
 }
 
-.mode-tab--active {
+button.mode-tab--active {
   color: var(--color-primary-dark);
   background: var(--color-primary-soft);
 }
@@ -105,8 +105,9 @@ button.source-option {
   background: #FCFBF9;
 }
 
-.source-option--active {
+button.source-option--active {
   border-color: var(--color-primary);
+  color: var(--color-primary-dark);
   background: var(--color-primary-soft);
 }
 
