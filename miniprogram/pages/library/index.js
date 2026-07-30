@@ -4,7 +4,7 @@ const categoryApi = require('../../utils/category');
 const session = require('../../utils/session');
 const { toggleSelectedId } = require('../../utils/review-queue');
 const { getSwipeIntent, setOpenSwipeCard } = require('../../utils/card-swipe');
-const { isDue } = require('../../utils/review');
+const { isDue, matchesReviewAge } = require('../../utils/review');
 const { decorateCard } = require('../../utils/view');
 const {
   decorateCardCategories,
@@ -24,12 +24,35 @@ const TAB_DEFINITIONS = [
   { value: 'due', label: '待复习' },
   { value: 'mastered', label: '已掌握' },
 ];
+const REVIEW_AGE_OPTIONS = [
+  { value: 0, label: '不限' },
+  { value: 7, label: '7天未复习' },
+  { value: 30, label: '30天未复习' },
+];
 
 function normalizeEditableContent(value) {
   return String(value || '').normalize('NFKC').trim().replace(/\s+/g, '');
 }
 
-function cardMatchesView(card, filter, keyword, selectedCategoryFilterIds = []) {
+function hasActiveFilters({
+  selectedFilter,
+  keyword,
+  selectedCategoryFilterIds,
+  reviewAgeDays,
+} = {}) {
+  return selectedFilter !== 'all'
+    || Boolean(normalizeEditableContent(keyword))
+    || normalizeSelectionIds(selectedCategoryFilterIds).length > 0
+    || Number(reviewAgeDays) > 0;
+}
+
+function cardMatchesView(
+  card,
+  filter,
+  keyword,
+  selectedCategoryFilterIds = [],
+  reviewAgeDays = 0,
+) {
   if (!card || card.status === 'deleted') return false;
   const normalizedKeyword = normalizeEditableContent(keyword);
   const matchesKeyword = !normalizedKeyword
@@ -43,6 +66,7 @@ function cardMatchesView(card, filter, keyword, selectedCategoryFilterIds = []) 
       || (categoryFilter.includeUncategorized && cardCategoryIds.length === 0);
     if (!matchesCategory) return false;
   }
+  if (!matchesReviewAge(card, reviewAgeDays)) return false;
   if (filter === 'due') return isDue(card);
   if (filter === 'mastered') return card.proficiency === 'proficient';
   return true;
@@ -79,6 +103,9 @@ Page({
     skeletons: [1, 2, 3],
     selectedFilter: 'all',
     tabs: TAB_DEFINITIONS.map((item) => ({ ...item, count: 0 })),
+    reviewAgeOptions: REVIEW_AGE_OPTIONS,
+    reviewAgeDays: 0,
+    hasActiveFilters: false,
     items: [],
     totalResults: 0,
     page: 1,
@@ -119,9 +146,15 @@ Page({
     if (cachedCategories.length) this.setData({ categories: cachedCategories });
     const intendedFilter = cache.consumeLibraryFilterIntent();
     if (intendedFilter && intendedFilter !== this.data.selectedFilter) {
+      const nextFilterState = {
+        ...this.data,
+        selectedFilter: intendedFilter,
+        keyword: '',
+      };
       this.setData({
         selectedFilter: intendedFilter,
         keyword: '',
+        hasActiveFilters: hasActiveFilters(nextFilterState),
         items: [],
         page: 1,
         hasMore: false,
@@ -188,6 +221,7 @@ Page({
         keyword: this.data.keyword,
         categoryIds: categoryFilter.categoryIds,
         includeUncategorized: categoryFilter.includeUncategorized,
+        reviewAgeDays: this.data.reviewAgeDays,
         page: nextPage,
         pageSize: 20,
       });
@@ -222,8 +256,14 @@ Page({
   onSelectFilter(event) {
     const filter = event.currentTarget.dataset.value;
     if (filter === this.data.selectedFilter) return;
-    this.setData({ selectedFilter: filter, items: [], page: 1, hasMore: false });
-    this.loadCards(true);
+    this.setData({
+      selectedFilter: filter,
+      hasActiveFilters: hasActiveFilters({ ...this.data, selectedFilter: filter }),
+      items: [],
+      page: 1,
+      hasMore: false,
+    });
+    return this.loadCards(true);
   },
 
   onPullDownRefresh() {
@@ -240,15 +280,56 @@ Page({
 
   onKeywordInput(event) {
     const keyword = event.detail.value;
-    this.setData({ keyword });
+    this.setData({
+      keyword,
+      hasActiveFilters: hasActiveFilters({ ...this.data, keyword }),
+    });
     clearTimeout(this._searchTimer);
     this._searchTimer = setTimeout(() => this.loadCards(true), 300);
   },
 
   onClearKeyword() {
     clearTimeout(this._searchTimer);
-    this.setData({ keyword: '' });
-    this.loadCards(true);
+    this.setData({
+      keyword: '',
+      hasActiveFilters: hasActiveFilters({ ...this.data, keyword: '' }),
+      items: [],
+      page: 1,
+      hasMore: false,
+    });
+    return this.loadCards(true);
+  },
+
+  onSelectReviewAge(event) {
+    const reviewAgeDays = [7, 30].includes(Number(event.currentTarget.dataset.days))
+      ? Number(event.currentTarget.dataset.days)
+      : 0;
+    if (reviewAgeDays === this.data.reviewAgeDays) return null;
+    this.setData({
+      reviewAgeDays,
+      hasActiveFilters: hasActiveFilters({ ...this.data, reviewAgeDays }),
+      items: [],
+      page: 1,
+      hasMore: false,
+    });
+    return this.loadCards(true);
+  },
+
+  onClearAllFilters() {
+    clearTimeout(this._searchTimer);
+    this.setData({
+      selectedFilter: 'all',
+      keyword: '',
+      reviewAgeDays: 0,
+      selectedCategoryFilterIds: [],
+      pendingCategoryFilterIds: [],
+      categoryFilterSummary: '全部分类',
+      hasActiveFilters: false,
+      items: [],
+      page: 1,
+      hasMore: false,
+    });
+    return this.loadCards(true);
   },
 
   onOpenCategoryFilter() {
@@ -278,6 +359,10 @@ Page({
         { filterMode: true },
       ),
       showCategoryFilterPicker: false,
+      hasActiveFilters: hasActiveFilters({
+        ...this.data,
+        selectedCategoryFilterIds,
+      }),
       items: [],
       page: 1,
       hasMore: false,
@@ -517,6 +602,7 @@ Page({
         this.data.selectedFilter,
         this.data.keyword,
         this.data.selectedCategoryFilterIds,
+        this.data.reviewAgeDays,
       );
       this.setData({
         items: remainsVisible

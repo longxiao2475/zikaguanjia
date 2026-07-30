@@ -64,11 +64,14 @@ function createContext(definition, data = {}) {
       categories: [],
       selectedCategoryFilterIds: [],
       pendingCategoryFilterIds: [],
+      categoryFilterSummary: '全部分类',
       showCategoryFilterPicker: false,
       showEditCategoryPicker: false,
       deletingCardId: '',
       selectedFilter: 'all',
       keyword: '',
+      reviewAgeDays: 0,
+      hasActiveFilters: false,
       totalResults: 0,
       tabs: [
         { value: 'all', count: 0 },
@@ -289,6 +292,81 @@ test('分类筛选确认后重置分页并发送多分类和未分类参数', as
   assert.deepEqual(listPayload.categoryIds, ['traffic']);
   assert.equal(listPayload.includeUncategorized, true);
   assert.equal(listPayload.page, 1);
+});
+
+test('未复习时间筛选与名称分类状态组合发送', async () => {
+  let listPayload;
+  const definition = loadLibraryPage({
+    cardApi: {
+      listCards: async (value) => {
+        listPayload = value;
+        return { items: [], total: 0, page: 1, hasMore: false, counts: {} };
+      },
+    },
+  });
+  const context = createContext(definition, {
+    selectedFilter: 'mastered',
+    keyword: '蛙',
+    selectedCategoryFilterIds: ['animal'],
+  });
+
+  await definition.onSelectReviewAge.call(context, {
+    currentTarget: { dataset: { days: 7 } },
+  });
+
+  assert.equal(context.data.reviewAgeDays, 7);
+  assert.equal(context.data.hasActiveFilters, true);
+  assert.equal(listPayload.reviewAgeDays, 7);
+  assert.equal(listPayload.filter, 'mastered');
+  assert.equal(listPayload.keyword, '蛙');
+  assert.deepEqual(listPayload.categoryIds, ['animal']);
+});
+
+test('清空统一筛选只刷新一次并恢复全部默认值', async () => {
+  let listCalls = 0;
+  let listPayload;
+  const definition = loadLibraryPage({
+    cardApi: {
+      listCards: async (value) => {
+        listCalls += 1;
+        listPayload = value;
+        return { items: [], total: 0, page: 1, hasMore: false, counts: {} };
+      },
+    },
+  });
+  const context = createContext(definition, {
+    selectedFilter: 'due',
+    keyword: '蛙',
+    reviewAgeDays: 30,
+    selectedCategoryFilterIds: ['animal'],
+    pendingCategoryFilterIds: ['animal'],
+    categoryFilterSummary: '动物',
+    hasActiveFilters: true,
+    items: [{ _id: 'old', swipeOpen: true }],
+    page: 3,
+    hasMore: true,
+  });
+
+  await definition.onClearAllFilters.call(context);
+
+  assert.equal(listCalls, 1);
+  assert.deepEqual(listPayload, {
+    childId: 'child-1',
+    filter: 'all',
+    keyword: '',
+    categoryIds: [],
+    includeUncategorized: false,
+    reviewAgeDays: 0,
+    page: 1,
+    pageSize: 20,
+  });
+  assert.equal(context.data.selectedFilter, 'all');
+  assert.equal(context.data.keyword, '');
+  assert.equal(context.data.reviewAgeDays, 0);
+  assert.deepEqual(context.data.selectedCategoryFilterIds, []);
+  assert.deepEqual(context.data.pendingCategoryFilterIds, []);
+  assert.equal(context.data.categoryFilterSummary, '全部分类');
+  assert.equal(context.data.hasActiveFilters, false);
 });
 
 test('普通模式点击整行打开按不重复单字拆分的详情', () => {
