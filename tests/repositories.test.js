@@ -113,6 +113,10 @@ test('categoryService 仓储按孩子排序分类并写入更新时间', async (
       { _id: 'a', childId: 'c1', name: '植物', sortOrder: 1, status: 'active' },
       { _id: 'x', childId: 'c1', name: '旧分类', sortOrder: 0, status: 'inactive' },
     ],
+    cards: [
+      { _id: 'card-a', childId: 'c1', categoryIds: ['a'], status: 'active' },
+      { _id: 'card-b', childId: 'c1', categoryIds: ['a'], status: 'deleted' },
+    ],
   });
   const repository = createCategoryRepository(db);
 
@@ -120,12 +124,16 @@ test('categoryService 仓储按孩子排序分类并写入更新时间', async (
   const all = await repository.listCategories('c1', true);
   const created = await repository.createCategory({ childId: 'c1', name: '家具', normalizedName: '家具', sortOrder: 3, status: 'active' });
   const updated = await repository.updateCategory(created._id, { name: '家居', normalizedName: '家居' });
+  const references = await repository.countActiveCardReferences('c1', 'a');
+  const inactive = await repository.updateCategoryStatus(created._id, 'inactive');
 
   assert.deepEqual(listed.map((item) => item._id), ['a', 'b']);
   assert.deepEqual(all.map((item) => item._id), ['x', 'a', 'b']);
   assert.equal(created.createdAt, 'SERVER_DATE');
   assert.equal(updated.name, '家居');
   assert.equal(updated.updatedAt, 'SERVER_DATE');
+  assert.equal(references, 1);
+  assert.equal(inactive.status, 'inactive');
 });
 
 test('categoryService 仓储首次访问时自动创建缺失的 categories 集合', async () => {

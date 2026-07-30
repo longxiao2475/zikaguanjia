@@ -5,24 +5,8 @@ const DEFAULT_CATEGORY_NAMES = Object.freeze([
   '家具',
   '植物',
   '动物',
-  '水果',
-  '蔬菜',
-  '服饰',
   '学习用品',
-  '玩具',
   '日常用品',
-  '家庭成员',
-  '人物职业',
-  '颜色',
-  '数字',
-  '形状',
-  '方位',
-  '时间',
-  '动作行为',
-  '情绪感受',
-  '自然天气',
-  '建筑场所',
-  '节日文化',
 ]);
 
 function businessError(code, message) {
@@ -56,10 +40,12 @@ function createCategoryService(repository) {
 
   async function list(openid, payload = {}) {
     await assertChildOwnership(openid, payload.childId);
-    const allCategories = await repository.listCategories(payload.childId, true);
-    if (!allCategories.length) {
-      for (let index = 0; index < DEFAULT_CATEGORY_NAMES.length; index += 1) {
-        const name = DEFAULT_CATEGORY_NAMES[index];
+    let allCategories = await repository.listCategories(payload.childId, true);
+
+    for (let index = 0; index < DEFAULT_CATEGORY_NAMES.length; index += 1) {
+      const name = DEFAULT_CATEGORY_NAMES[index];
+      const existing = allCategories.find((item) => item.normalizedName === name);
+      if (!existing) {
         await repository.createCategory({
           ownerOpenid: openid,
           childId: payload.childId,
@@ -69,8 +55,48 @@ function createCategoryService(repository) {
           isDefault: true,
           status: 'active',
         });
+        continue;
+      }
+      if (
+        existing.sortOrder !== index
+        || existing.status !== 'active'
+        || existing.isDefault !== true
+      ) {
+        await repository.updateCategory(existing._id, {
+          sortOrder: index,
+          isDefault: true,
+          status: 'active',
+        });
       }
     }
+
+    allCategories = await repository.listCategories(payload.childId, true);
+    let nextSortOrder = DEFAULT_CATEGORY_NAMES.length;
+    for (const category of allCategories) {
+      if (DEFAULT_CATEGORY_NAMES.includes(category.normalizedName)) continue;
+      if (category.isDefault) {
+        const references = await repository.countActiveCardReferences(
+          payload.childId,
+          category._id,
+        );
+        if (references === 0) {
+          if (category.status === 'active') {
+            await repository.updateCategoryStatus(category._id, 'inactive');
+          }
+          continue;
+        }
+        if (category.status !== 'active') {
+          await repository.updateCategoryStatus(category._id, 'active');
+        }
+      } else if (category.status !== 'active') {
+        continue;
+      }
+      if (category.sortOrder !== nextSortOrder) {
+        await repository.updateCategory(category._id, { sortOrder: nextSortOrder });
+      }
+      nextSortOrder += 1;
+    }
+
     return repository.listCategories(payload.childId, false);
   }
 

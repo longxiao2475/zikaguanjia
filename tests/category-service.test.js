@@ -10,6 +10,7 @@ const {
 function createMemoryRepository(seed = {}) {
   const children = [...(seed.children || [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }])];
   const categories = [...(seed.categories || [])];
+  const cards = [...(seed.cards || [])];
 
   return {
     categories,
@@ -41,6 +42,19 @@ function createMemoryRepository(seed = {}) {
       Object.assign(category, updates);
       return category;
     },
+    async countActiveCardReferences(childId, categoryId) {
+      return cards.filter((card) => (
+        card.childId === childId
+        && card.status === 'active'
+        && Array.isArray(card.categoryIds)
+        && card.categoryIds.includes(categoryId)
+      )).length;
+    },
+    async updateCategoryStatus(id, status) {
+      const category = categories.find((item) => item._id === id);
+      category.status = status;
+      return category;
+    },
   };
 }
 
@@ -59,11 +73,55 @@ test('首次读取为孩子生成默认分类且后续读取不会重复生成',
   const first = await service.list('openid-1', { childId: 'child-1' });
   const second = await service.list('openid-1', { childId: 'child-1' });
 
-  assert.equal(DEFAULT_CATEGORY_NAMES.length, 24);
+  assert.deepEqual(DEFAULT_CATEGORY_NAMES, [
+    '交通工具', '食品', '身体部位', '家具',
+    '植物', '动物', '学习用品', '日常用品',
+  ]);
   assert.deepEqual(first.map((item) => item.name), DEFAULT_CATEGORY_NAMES);
   assert.deepEqual(second.map((item) => item._id), first.map((item) => item._id));
-  assert.equal(repository.categories.length, 24);
+  assert.equal(repository.categories.length, 8);
   assert.equal(first.every((item) => item.isDefault && item.status === 'active'), true);
+});
+
+test('分类校准停用未引用旧默认分类并保留已引用和自定义分类', async () => {
+  const repository = createMemoryRepository({
+    categories: [
+      {
+        _id: 'traffic', childId: 'child-1', name: '交通工具', normalizedName: '交通工具',
+        sortOrder: 0, isDefault: true, status: 'active',
+      },
+      {
+        _id: 'fruit', childId: 'child-1', name: '水果', normalizedName: '水果',
+        sortOrder: 6, isDefault: true, status: 'active',
+      },
+      {
+        _id: 'toy', childId: 'child-1', name: '玩具', normalizedName: '玩具',
+        sortOrder: 10, isDefault: true, status: 'active',
+      },
+      {
+        _id: 'car', childId: 'child-1', name: '汽车', normalizedName: '汽车',
+        sortOrder: 24, isDefault: false, status: 'active',
+      },
+    ],
+    cards: [{
+      _id: 'card-1', childId: 'child-1', categoryIds: ['fruit'], status: 'active',
+    }],
+  });
+  const service = createCategoryService(repository);
+
+  const first = await service.list('openid-1', { childId: 'child-1' });
+  const countAfterFirst = repository.categories.length;
+  const second = await service.list('openid-1', { childId: 'child-1' });
+
+  assert.deepEqual(first.slice(0, 8).map((item) => item.name), DEFAULT_CATEGORY_NAMES);
+  assert.equal(first.some((item) => item.name === '水果'), true);
+  assert.equal(first.some((item) => item.name === '汽车'), true);
+  assert.equal(first.some((item) => item.name === '玩具'), false);
+  assert.equal(repository.categories.find((item) => item._id === 'toy').status, 'inactive');
+  assert.equal(repository.categories.find((item) => item._id === 'fruit').status, 'active');
+  assert.equal(repository.categories.find((item) => item._id === 'car').status, 'active');
+  assert.equal(repository.categories.length, countAfterFirst);
+  assert.deepEqual(second.map((item) => item._id), first.map((item) => item._id));
 });
 
 test('可以新增分类并拒绝同一孩子下标准化后重名', async () => {

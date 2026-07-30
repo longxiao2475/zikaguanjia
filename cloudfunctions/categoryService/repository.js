@@ -11,6 +11,7 @@ function isMissingCollectionError(error) {
 function createCategoryRepository(db) {
   const categories = db.collection('categories');
   const children = db.collection('children');
+  const cards = db.collection('cards');
   let collectionInitialization = null;
 
   async function initializeCategoriesCollection(originalError) {
@@ -101,6 +102,31 @@ function createCategoryRepository(db) {
     async updateCategory(id, updates) {
       await runCategoryOperation(() => categories.doc(id).update({
         data: { ...updates, updatedAt: db.serverDate() },
+      }));
+      return readCategory(id);
+    },
+
+    async countActiveCardReferences(childId, categoryId) {
+      let count = 0;
+      let offset = 0;
+      while (true) {
+        const result = await cards
+          .where({ childId, status: 'active' })
+          .skip(offset)
+          .limit(BATCH_SIZE)
+          .get();
+        count += result.data.filter((card) => (
+          Array.isArray(card.categoryIds) && card.categoryIds.includes(categoryId)
+        )).length;
+        if (result.data.length < BATCH_SIZE) break;
+        offset += BATCH_SIZE;
+      }
+      return count;
+    },
+
+    async updateCategoryStatus(id, status) {
+      await runCategoryOperation(() => categories.doc(id).update({
+        data: { status, updatedAt: db.serverDate() },
       }));
       return readCategory(id);
     },
