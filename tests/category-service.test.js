@@ -155,6 +155,34 @@ test('可以新增分类并拒绝同一孩子下标准化后重名', async () =>
   );
 });
 
+test('重新新增已停用分类会恢复原记录并显示在管理列表', async () => {
+  const repository = createMemoryRepository({
+    categories: [
+      {
+        _id: 'traffic', childId: 'child-1', name: '交通工具', normalizedName: '交通工具',
+        sortOrder: 0, isDefault: true, status: 'active',
+      },
+      {
+        _id: 'fruit', childId: 'child-1', name: '水果', normalizedName: '水果',
+        sortOrder: 10, isDefault: true, status: 'inactive',
+      },
+    ],
+  });
+  const service = createCategoryService(repository);
+
+  const restored = await service.create('openid-1', {
+    childId: 'child-1',
+    name: '水果',
+  });
+  const listed = await service.list('openid-1', { childId: 'child-1' });
+
+  assert.equal(restored._id, 'fruit');
+  assert.equal(restored.status, 'active');
+  assert.equal(restored.isDefault, false);
+  assert.equal(repository.categories.filter((item) => item.normalizedName === '水果').length, 1);
+  assert.equal(listed.some((item) => item.name === '水果'), true);
+});
+
 test('可以修改所属孩子的分类名称并阻止越权修改', async () => {
   const repository = createMemoryRepository({
     categories: [

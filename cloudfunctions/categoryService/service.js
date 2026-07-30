@@ -111,12 +111,23 @@ function createCategoryService(repository) {
     await assertChildOwnership(openid, payload.childId);
     const name = normalizeCategoryName(payload.name);
     const duplicate = await repository.findByNormalized(payload.childId, name);
-    if (duplicate) throw businessError('CATEGORY_DUPLICATE', '这个分类已经存在');
     const categories = await repository.listCategories(payload.childId, true);
     const sortOrder = categories.reduce(
       (maximum, item) => Math.max(maximum, Number(item.sortOrder) || 0),
       -1,
     ) + 1;
+    if (duplicate) {
+      if (duplicate.status === 'inactive') {
+        return repository.updateCategory(duplicate._id, {
+          name,
+          normalizedName: name,
+          sortOrder,
+          isDefault: false,
+          status: 'active',
+        });
+      }
+      throw businessError('CATEGORY_DUPLICATE', '这个分类已经存在');
+    }
     return repository.createCategory({
       ownerOpenid: openid,
       childId: payload.childId,
