@@ -14,6 +14,7 @@ cloudfunctions/**/node_modules/
 # Local agent/browser state and temporary artifacts
 .workbuddy/
 .playwright-mcp/
+.codex-tmp/
 .local-temp/
 .worktrees/
 *.log

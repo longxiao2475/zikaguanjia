@@ -93,9 +93,9 @@ test('录入方式和单字详情添加按钮的文字垂直居中', () => {
   const reviewWxss = read('miniprogram/pages/review/index.wxss');
 
   for (const rule of [
-    readRule(addWxss, '.mode-tab'),
-    readRule(libraryWxss, '.word-detail__save'),
-    readRule(reviewWxss, '.word-detail__save'),
+    readRule(addWxss, 'button.mode-tab'),
+    readRule(libraryWxss, 'button.word-detail__save'),
+    readRule(reviewWxss, 'button.word-detail__save'),
   ]) {
     assert.match(rule, /display:\s*flex;/);
     assert.match(rule, /align-items:\s*center;/);
@@ -114,13 +114,28 @@ test('原生按钮网格允许列收缩且不会横向溢出', () => {
   assert.match(readRule(libraryWxss, '.edit-sheet__actions'), /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1\.5fr\);/);
 
   for (const rule of [
-    readRule(addWxss, '.mode-tab'),
-    readRule(addWxss, '.source-option'),
-    readRule(libraryWxss, '.filter-tab'),
-    readRule(libraryWxss, '.edit-sheet__proficiency'),
+    readRule(addWxss, 'button.mode-tab'),
+    readRule(addWxss, 'button.source-option'),
+    readRule(libraryWxss, 'button.filter-tab'),
+    readRule(libraryWxss, 'button.edit-sheet__proficiency'),
   ]) {
     assert.match(rule, /width:\s*100%;/);
     assert.match(rule, /min-width:\s*0;/);
+    assert.match(rule, /max-width:\s*100%;/);
+  }
+
+  const categorySelectRule = readRule(addWxss, 'button.category-select');
+  assert.match(categorySelectRule, /width:\s*100%;/);
+  assert.match(categorySelectRule, /max-width:\s*100%;/);
+
+  const pickerWxss = read('miniprogram/components/category-picker/index.wxss');
+  for (const selector of [
+    'button.category-picker__header-button',
+    'button.category-picker__chip',
+    'button.category-picker__rename',
+    'button.category-picker__add',
+  ]) {
+    assert.match(readRule(pickerWxss, selector), /max-width:\s*100%;/);
   }
 });
 
@@ -132,10 +147,10 @@ test('编辑字卡完整显示三个熟练度且按钮文字垂直居中', () =>
     assert.equal(libraryWxml.includes(`data-value="${value}"`), true, `missing ${value}`);
   }
 
-  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /display:\s*flex;/);
-  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /align-items:\s*center;/);
-  assert.match(readRule(libraryWxss, '.edit-sheet__proficiency'), /justify-content:\s*center;/);
-  assert.match(libraryWxss, /\.edit-sheet__delete,\s*\.edit-sheet__save\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s);
+  assert.match(readRule(libraryWxss, 'button.edit-sheet__proficiency'), /display:\s*flex;/);
+  assert.match(readRule(libraryWxss, 'button.edit-sheet__proficiency'), /align-items:\s*center;/);
+  assert.match(readRule(libraryWxss, 'button.edit-sheet__proficiency'), /justify-content:\s*center;/);
+  assert.match(libraryWxss, /button\.edit-sheet__delete,\s*button\.edit-sheet__save\s*\{[^}]*display:\s*flex;[^}]*align-items:\s*center;[^}]*justify-content:\s*center;/s);
 });
 
 test('复习页和字卡库内联字卡详情且不再依赖 word-sheet 组件', () => {

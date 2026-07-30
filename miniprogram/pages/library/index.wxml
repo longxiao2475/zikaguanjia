@@ -239,6 +239,7 @@
   </view>
 
   <category-picker
+    id="libraryCategoryFilterPicker"
     visible="{{showCategoryFilterPicker}}"
     title="筛选分类"
     categories="{{categories}}"
@@ -255,6 +256,7 @@
   />
 
   <category-picker
+    id="libraryEditCategoryPicker"
     visible="{{showEditCategoryPicker}}"
     title="选择字卡分类"
     categories="{{categories}}"

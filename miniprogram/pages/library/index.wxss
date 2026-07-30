@@ -21,7 +21,9 @@
   font-size: 25rpx;
 }
 
-.library-header__add {
+button.library-header__add {
+  width: auto;
+  max-width: 100%;
   min-width: 154rpx;
   padding: 0 24rpx;
   flex: 0 0 auto;
@@ -62,13 +64,14 @@
   color: var(--color-text-muted);
 }
 
-.library-search__clear {
+button.library-search__clear {
+  width: auto;
   min-width: 80rpx;
   color: var(--color-primary-dark);
   font-size: 23rpx;
 }
 
-.library-select {
+button.library-select {
   width: 180rpx;
   min-height: 76rpx;
   flex: 0 0 auto;
@@ -87,9 +90,10 @@
   gap: 12rpx;
 }
 
-.category-filter-button {
+button.category-filter-button {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 78rpx;
   padding: 0 20rpx;
   border: 2rpx solid var(--color-border);
@@ -123,7 +127,7 @@
   white-space: nowrap;
 }
 
-.category-filter-retry {
+button.category-filter-retry {
   width: 112rpx;
   min-width: 112rpx;
   min-height: 78rpx;
@@ -141,9 +145,10 @@
   gap: 8rpx;
 }
 
-.filter-tab {
+button.filter-tab {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 82rpx;
   border-radius: 22rpx;
   color: var(--color-text-secondary);
@@ -495,9 +500,10 @@
   gap: 14rpx;
 }
 
-.edit-sheet__proficiency {
+button.edit-sheet__proficiency {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 88rpx;
   border: 2rpx solid var(--color-border);
   border-radius: 24rpx;
@@ -531,9 +537,10 @@
   margin-top: 28rpx;
 }
 
-.edit-sheet__category {
+button.edit-sheet__category {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 88rpx;
   margin-top: 10rpx;
   padding: 0 22rpx;
@@ -567,10 +574,11 @@
   gap: 16rpx;
 }
 
-.edit-sheet__delete,
-.edit-sheet__save {
+button.edit-sheet__delete,
+button.edit-sheet__save {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 92rpx;
   border-radius: 26rpx;
   display: flex;
@@ -580,13 +588,14 @@
   font-weight: 650;
 }
 
-.edit-sheet__delete {
+button.edit-sheet__delete {
   color: #B43835;
   background: #FFF0EE;
 }
 
-.edit-sheet__cancel {
+button.edit-sheet__cancel {
   width: 100%;
+  max-width: 100%;
   min-height: 80rpx;
   margin-top: 8rpx;
 }
@@ -726,8 +735,9 @@
   font-size: 27rpx;
 }
 
-.word-detail__save {
+button.word-detail__save {
   width: 138rpx;
+  max-width: 100%;
   min-height: 88rpx;
   border-radius: 24rpx;
   color: #FFFFFF;

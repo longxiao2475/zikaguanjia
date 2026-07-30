@@ -1,12 +1,55 @@
 const BATCH_SIZE = 100;
 
+function isMissingCollectionError(error) {
+  const code = error && (error.errCode || error.errno || error.code);
+  const message = String((error && (error.errMsg || error.message)) || '');
+  return Number(code) === -502005
+    || code === 'DATABASE_COLLECTION_NOT_EXIST'
+    || /collection not exists|table not exist|DATABASE_COLLECTION_NOT_EXIST/i.test(message);
+}
+
 function createCategoryRepository(db) {
   const categories = db.collection('categories');
   const children = db.collection('children');
+  let collectionInitialization = null;
+
+  async function initializeCategoriesCollection(originalError) {
+    if (!isMissingCollectionError(originalError) || typeof db.createCollection !== 'function') {
+      throw originalError;
+    }
+    if (!collectionInitialization) {
+      collectionInitialization = (async () => {
+        try {
+          await db.createCollection('categories');
+        } catch (creationError) {
+          try {
+            await categories.limit(1).get();
+          } catch (readError) {
+            throw creationError;
+          }
+        }
+      })();
+    }
+    try {
+      await collectionInitialization;
+    } catch (error) {
+      collectionInitialization = null;
+      throw error;
+    }
+  }
+
+  async function runCategoryOperation(operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      await initializeCategoriesCollection(error);
+      return operation();
+    }
+  }
 
   async function readCategory(id) {
     if (!id) return null;
-    const result = await categories.doc(id).get();
+    const result = await runCategoryOperation(() => categories.doc(id).get());
     return result.data || null;
   }
 
@@ -21,11 +64,11 @@ function createCategoryRepository(db) {
       const all = [];
       let offset = 0;
       while (true) {
-        const result = await categories
+        const result = await runCategoryOperation(() => categories
           .where({ childId })
           .skip(offset)
           .limit(BATCH_SIZE)
-          .get();
+          .get());
         all.push(...result.data);
         if (result.data.length < BATCH_SIZE) break;
         offset += BATCH_SIZE;
@@ -37,7 +80,9 @@ function createCategoryRepository(db) {
     },
 
     async findByNormalized(childId, normalizedName, excludeId) {
-      const result = await categories.where({ childId, normalizedName }).limit(2).get();
+      const result = await runCategoryOperation(
+        () => categories.where({ childId, normalizedName }).limit(2).get(),
+      );
       return result.data.find((item) => item._id !== excludeId) || null;
     },
 
@@ -47,16 +92,16 @@ function createCategoryRepository(db) {
 
     async createCategory(data) {
       const serverDate = db.serverDate();
-      const result = await categories.add({
+      const result = await runCategoryOperation(() => categories.add({
         data: { ...data, createdAt: serverDate, updatedAt: serverDate },
-      });
+      }));
       return readCategory(result._id);
     },
 
     async updateCategory(id, updates) {
-      await categories.doc(id).update({
+      await runCategoryOperation(() => categories.doc(id).update({
         data: { ...updates, updatedAt: db.serverDate() },
-      });
+      }));
       return readCategory(id);
     },
   };
@@ -65,4 +110,5 @@ function createCategoryRepository(db) {
 module.exports = {
   BATCH_SIZE,
   createCategoryRepository,
+  isMissingCollectionError,
 };

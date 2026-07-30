@@ -39,9 +39,10 @@
   font-weight: 700;
 }
 
-.category-picker__header-button {
+button.category-picker__header-button {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 88rpx;
   color: #767676;
   display: flex;
@@ -62,7 +63,9 @@
   gap: 14rpx;
 }
 
-.category-picker__chip {
+button.category-picker__chip {
+  width: auto;
+  max-width: 100%;
   min-height: 76rpx;
   padding: 0 24rpx;
   border: 2rpx solid #F0EDE8;
@@ -95,10 +98,11 @@
   gap: 16rpx;
 }
 
-.category-picker__manage,
-.category-picker__clear,
-.category-picker__rename,
-.category-picker__add {
+button.category-picker__manage,
+button.category-picker__clear,
+button.category-picker__rename,
+button.category-picker__add {
+  max-width: 100%;
   min-height: 88rpx;
   border-radius: 24rpx;
   display: flex;
@@ -108,13 +112,13 @@
   font-weight: 650;
 }
 
-.category-picker__manage,
-.category-picker__add {
+button.category-picker__manage,
+button.category-picker__add {
   color: #E6704A;
   background: #FFF0EB;
 }
 
-.category-picker__clear {
+button.category-picker__clear {
   color: #767676;
 }
 
@@ -136,12 +140,14 @@
   font-size: 27rpx;
 }
 
-.category-picker__rename {
+button.category-picker__rename {
   width: 120rpx;
+  max-width: 100%;
   color: #E6704A;
 }
 
-.category-picker__add {
+button.category-picker__add {
   width: 100%;
+  max-width: 100%;
   margin-top: 24rpx;
 }

@@ -22,7 +22,8 @@
   gap: 14rpx;
 }
 
-.review-progress__reorder {
+button.review-progress__reorder {
+  width: auto;
   min-width: 126rpx;
   min-height: 64rpx;
   padding: 0 18rpx;
@@ -48,7 +49,7 @@
   transition: width 180ms ease;
 }
 
-.review-card {
+button.review-card {
   width: 400rpx;
   height: 400rpx;
   margin: 28rpx auto 0;
@@ -78,7 +79,10 @@
   gap: 18rpx;
 }
 
-.review-action {
+button.review-action {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   min-height: 150rpx;
   border-radius: 30rpx;
   color: #FFFFFF;
@@ -120,7 +124,7 @@
   text-align: center;
 }
 
-.submission-error__button {
+button.submission-error__button {
   width: 260rpx;
   margin: 20rpx auto 0;
 }
@@ -349,8 +353,9 @@
   font-size: 27rpx;
 }
 
-.word-detail__save {
+button.word-detail__save {
   width: 138rpx;
+  max-width: 100%;
   min-height: 88rpx;
   border-radius: 24rpx;
   color: #FFFFFF;

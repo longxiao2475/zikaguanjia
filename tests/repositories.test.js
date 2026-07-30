@@ -127,3 +127,83 @@ test('categoryService 仓储按孩子排序分类并写入更新时间', async (
   assert.equal(updated.name, '家居');
   assert.equal(updated.updatedAt, 'SERVER_DATE');
 });
+
+test('categoryService 仓储首次访问时自动创建缺失的 categories 集合', async () => {
+  let categoriesExists = false;
+  let createCollectionCalls = 0;
+  const categories = [];
+  const missingCollectionError = () => {
+    const error = new Error('database collection not exists: categories');
+    error.errCode = -502005;
+    return error;
+  };
+  const db = {
+    collection(name) {
+      if (name === 'children') {
+        return {
+          doc() {
+            return { async get() { return { data: null }; } };
+          },
+        };
+      }
+      const state = { query: {}, skip: 0, limit: Infinity };
+      const api = {
+        where(query) {
+          state.query = query;
+          return api;
+        },
+        skip(value) {
+          state.skip = value;
+          return api;
+        },
+        limit(value) {
+          state.limit = value;
+          return api;
+        },
+        async get() {
+          if (!categoriesExists) throw missingCollectionError();
+          return {
+            data: categories
+              .filter((item) => item.childId === state.query.childId)
+              .slice(state.skip, state.skip + state.limit),
+          };
+        },
+        async add({ data }) {
+          if (!categoriesExists) throw missingCollectionError();
+          const category = { _id: `category-${categories.length + 1}`, ...data };
+          categories.push(category);
+          return { _id: category._id };
+        },
+        doc(id) {
+          return {
+            async get() {
+              if (!categoriesExists) throw missingCollectionError();
+              return { data: categories.find((item) => item._id === id) || null };
+            },
+          };
+        },
+      };
+      return api;
+    },
+    async createCollection(name) {
+      assert.equal(name, 'categories');
+      createCollectionCalls += 1;
+      categoriesExists = true;
+    },
+    serverDate: () => 'SERVER_DATE',
+  };
+  const repository = createCategoryRepository(db);
+
+  const listed = await repository.listCategories('c1');
+  const created = await repository.createCategory({
+    childId: 'c1',
+    name: '汽车',
+    normalizedName: '汽车',
+    sortOrder: 0,
+    status: 'active',
+  });
+
+  assert.deepEqual(listed, []);
+  assert.equal(created.name, '汽车');
+  assert.equal(createCollectionCalls, 1);
+});

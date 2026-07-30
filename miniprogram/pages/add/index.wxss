@@ -25,9 +25,10 @@
   gap: 8rpx;
 }
 
-.mode-tab {
+button.mode-tab {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 80rpx;
   border-radius: 22rpx;
   color: var(--color-text-secondary);
@@ -92,9 +93,10 @@
   gap: 16rpx;
 }
 
-.source-option {
+button.source-option {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 132rpx;
   padding: 22rpx 18rpx;
   border: 2rpx solid var(--color-border);
@@ -123,9 +125,10 @@
   margin-top: 36rpx;
 }
 
-.category-select {
+button.category-select {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
   min-height: 96rpx;
   margin-top: 16rpx;
   padding: 0 24rpx;
@@ -162,7 +165,8 @@
   font-size: 23rpx;
 }
 
-.category-error__retry {
+button.category-error__retry {
+  width: auto;
   min-width: 96rpx;
   min-height: 72rpx;
   color: var(--color-primary-dark);
@@ -201,13 +205,14 @@
   font-size: 23rpx;
 }
 
-.saved-strip__action {
+button.saved-strip__action {
+  width: auto;
   flex: 0 0 auto;
   min-width: 100rpx;
   min-height: 72rpx;
 }
 
-.save-button {
+button.save-button {
   position: fixed;
   left: 32rpx;
   right: 32rpx;
