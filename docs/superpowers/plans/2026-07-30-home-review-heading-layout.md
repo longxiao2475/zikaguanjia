@@ -15,15 +15,15 @@
 **Files:**
 - Modify: `tests/project-structure.test.js`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
-Add an assertion that the heading contains a `section-heading__copy` wrapper and that the WXSS uses a two-column grid, makes the copy shrinkable, sends the action to the right, and spans the subtitle across both columns.
+Add assertions that the title, action, and subtitle are direct heading children and that the WXSS uses a two-column grid, sends the action to the right, and spans the subtitle across both columns.
 
-- [ ] **Step 2: Run the focused test to verify it fails**
+- [x] **Step 2: Run the focused test to verify it fails**
 
 Run: `node --test tests/project-structure.test.js`
 
-Expected: FAIL because the wrapper and grid layout rules do not exist yet.
+Expected: FAIL because the direct-child grid layout rules do not exist yet.
 
 ### Task 2: Implement the home heading grid
 
@@ -31,21 +31,21 @@ Expected: FAIL because the wrapper and grid layout rules do not exist yet.
 - Modify: `miniprogram/pages/index/index.wxml`
 - Modify: `miniprogram/pages/index/index.wxss`
 
-- [ ] **Step 1: Add the copy wrapper**
+- [x] **Step 1: Flatten the heading children**
 
-Wrap the title and subtitle in `<view class="section-heading__copy">` without changing their text or bindings.
+Place the existing title, action button, and subtitle directly inside `.section-heading` without changing their text or bindings.
 
-- [ ] **Step 2: Apply the grid layout**
+- [x] **Step 2: Apply the grid layout**
 
-Use `grid-template-columns: minmax(0, 1fr) auto`, set `.section-heading__copy { min-width: 0; }`, keep `.section-heading__more` fixed and right-aligned, and make `.section-heading__subtitle` span the full available copy width without button pressure.
+Use `grid-template-columns: minmax(0, 1fr) auto`, keep `.section-heading__more` fixed and right-aligned, and make `.section-heading__subtitle` span both columns without button pressure.
 
-- [ ] **Step 3: Run the focused test**
+- [x] **Step 3: Run the focused test**
 
 Run: `node --test tests/project-structure.test.js`
 
 Expected: PASS.
 
-- [ ] **Step 4: Run the full verification**
+- [x] **Step 4: Run the full verification**
 
 Run: `npm test`
 
@@ -59,7 +59,6 @@ Run: `git diff --check`
 
 Expected: no output.
 
-- [ ] **Step 5: Verify in WeChat Developer Tools**
+- [x] **Step 5: Verify in WeChat Developer Tools**
 
 Open the home page at the iPhone 12/13 simulator size and capture a screenshot confirming the action is right-aligned and the subtitle is no longer squeezed by it.
-

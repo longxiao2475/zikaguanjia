@@ -42,11 +42,9 @@
   </view>
 
   <view class="section-heading">
-    <view>
-      <view class="section-title section-heading__title">今日待复习</view>
-      <view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前</view>
-    </view>
+    <view class="section-title section-heading__title">今日待复习</view>
     <button class="text-button section-heading__more" data-filter="all" bindtap="onOpenLibrary">全部字卡</button>
+    <view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前</view>
   </view>
 
   <view wx:if="{{showSkeleton}}" class="surface-card loading-card">
