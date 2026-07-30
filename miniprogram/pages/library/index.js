@@ -3,6 +3,7 @@ const cardApi = require('../../utils/card');
 const categoryApi = require('../../utils/category');
 const session = require('../../utils/session');
 const { toggleSelectedId } = require('../../utils/review-queue');
+const { getSwipeIntent, setOpenSwipeCard } = require('../../utils/card-swipe');
 const { isDue } = require('../../utils/review');
 const { decorateCard } = require('../../utils/view');
 const {
@@ -110,6 +111,7 @@ Page({
     categoryFilterSummary: '全部分类',
     showCategoryFilterPicker: false,
     showEditCategoryPicker: false,
+    deletingCardId: '',
   },
 
   onShow() {
@@ -293,6 +295,7 @@ Page({
       items: this.data.items.map((item) => ({
         ...item,
         selected: selectedIds.includes(item._id),
+        swipeOpen: false,
       })),
     });
   },
@@ -325,10 +328,44 @@ Page({
     }
     const card = this.data.items.find((item) => item._id === cardId);
     if (!card) return;
+    if (this._suppressCardTapId === cardId) {
+      this._suppressCardTapId = '';
+      return;
+    }
+    if (card.swipeOpen) {
+      this.setData({ items: setOpenSwipeCard(this.data.items, null) });
+      return;
+    }
     this.setData({
       showWordDetail: true,
       wordDetailCard: card,
       wordDetail: getWordDetail(card),
+    });
+  },
+
+  onCardTouchStart(event) {
+    if (this.data.selectionMode || this.data.deletingCardId) return;
+    const touch = event.touches && event.touches[0];
+    if (!touch) return;
+    this._cardTouchStart = {
+      cardId: event.currentTarget.dataset.id,
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  },
+
+  onCardTouchEnd(event) {
+    if (this.data.selectionMode || !this._cardTouchStart) return;
+    const touch = event.changedTouches && event.changedTouches[0];
+    const cardId = event.currentTarget.dataset.id;
+    const start = this._cardTouchStart;
+    this._cardTouchStart = null;
+    if (!touch || start.cardId !== cardId) return;
+    const intent = getSwipeIntent(start, { x: touch.clientX, y: touch.clientY });
+    if (intent === 'none') return;
+    this._suppressCardTapId = cardId;
+    this.setData({
+      items: setOpenSwipeCard(this.data.items, intent === 'open' ? cardId : null),
     });
   },
 
@@ -355,6 +392,7 @@ Page({
       editCategoryIds: normalizeSelectionIds(card.categoryIds, 10),
       pendingEditCategoryIds: normalizeSelectionIds(card.categoryIds, 10),
       editCategorySummary: getCategorySelectionLabel(this.data.categories, card.categoryIds),
+      items: setOpenSwipeCard(this.data.items, null),
     });
   },
 
@@ -505,9 +543,8 @@ Page({
     }
   },
 
-  onDeleteCard() {
-    if (this.data.editSaving || !this.data.editingCard) return;
-    const card = this.data.editingCard;
+  confirmDeleteCard(card) {
+    if (!card || this.data.deletingCardId || this.data.editSaving) return;
     wx.showModal({
       title: `删除“${card.content}”？`,
       content: '删除后不再出现在字卡库和复习计划中，历史复习记录会保留。',
@@ -515,7 +552,14 @@ Page({
       confirmColor: '#C7443E',
       success: async (result) => {
         if (!result.confirm) return;
-        this.setData({ editSaving: true });
+        const deletingFromEdit = Boolean(
+          this.data.editingCard && this.data.editingCard._id === card._id,
+        );
+        this.setData({
+          deletingCardId: card._id,
+          editSaving: deletingFromEdit,
+          items: setOpenSwipeCard(this.data.items, null),
+        });
         try {
           const child = await this.ensureChild();
           await cardApi.deleteCard({ childId: child._id, cardId: card._id });
@@ -527,6 +571,7 @@ Page({
             selectedIds,
             selectedCount: selectedIds.length,
             showEditSheet: false,
+            showEditCategoryPicker: false,
             editingCard: null,
           });
           wx.showToast({ title: '字卡已删除', icon: 'success' });
@@ -535,10 +580,22 @@ Page({
         } catch (error) {
           wx.showToast({ title: error.message || '删除失败，请重试', icon: 'none' });
         } finally {
-          this.setData({ editSaving: false });
+          this.setData({ editSaving: false, deletingCardId: '' });
         }
       },
     });
+  },
+
+  onDeleteCard() {
+    if (this.data.editSaving || !this.data.editingCard) return;
+    this.confirmDeleteCard(this.data.editingCard);
+  },
+
+  onSwipeDelete(event) {
+    if (this.data.selectionMode || this.data.deletingCardId) return;
+    const cardId = event.currentTarget.dataset.id;
+    const card = this.data.items.find((item) => item._id === cardId);
+    this.confirmDeleteCard(card);
   },
 
   onCloseWordDetail() {

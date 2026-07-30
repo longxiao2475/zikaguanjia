@@ -65,44 +65,57 @@
 
   <view wx:elif="{{items.length}}" class="card-list">
     <view
-      class="word-card surface-card {{selectionMode && item.selected ? 'word-card--selected' : ''}}"
+      class="word-card-swipe"
       wx:for="{{items}}"
       wx:key="_id"
-      data-id="{{item._id}}"
-      bindtap="onCardTap"
-      hover-class="word-card--pressed"
-      aria-role="{{selectionMode ? 'checkbox' : 'button'}}"
-      aria-checked="{{selectionMode ? item.selected : false}}"
-      aria-label="{{selectionMode ? (item.selected ? '取消选择' : '选择') : '查看'}}{{item.content}}"
     >
       <view
-        wx:if="{{selectionMode}}"
-        class="word-card__selector-hit"
-      >
-        <view class="word-card__selector {{item.selected ? 'word-card__selector--selected' : ''}}">{{item.selected ? '✓' : ''}}</view>
-      </view>
-      <view wx:else class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
-      <view class="word-card__main">
-        <view class="word-card__topline">
-          <view class="word-card__content">{{item.content}}</view>
-          <view class="word-card__type">{{item.typeLabel}}</view>
-        </view>
-        <view class="word-card__categories">
-          <view class="word-card__category" wx:for="{{item.categoryLabels}}" wx:for-item="categoryLabel" wx:key="*this">{{categoryLabel}}</view>
-          <view wx:if="{{item.categoryOverflowCount}}" class="word-card__category">+{{item.categoryOverflowCount}}</view>
-          <view wx:if="{{!item.categoryLabels.length}}" class="word-card__category word-card__category--empty">未分类</view>
-        </view>
-        <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
-      </view>
-      <view
-        wx:if="{{!selectionMode}}"
-        class="word-card__edit"
+        class="word-card-swipe__delete"
         data-id="{{item._id}}"
-        catchtap="onOpenEdit"
-        hover-class="word-card__edit--pressed"
+        catchtap="onSwipeDelete"
         aria-role="button"
-        aria-label="编辑{{item.content}}"
-      >编辑</view>
+        aria-label="删除{{item.content}}"
+      >{{deletingCardId === item._id ? '删除中' : '删除'}}</view>
+      <view
+        class="word-card surface-card {{selectionMode && item.selected ? 'word-card--selected' : ''}} {{item.swipeOpen ? 'word-card--swipe-open' : ''}}"
+        data-id="{{item._id}}"
+        bindtap="onCardTap"
+        bindtouchstart="onCardTouchStart"
+        bindtouchend="onCardTouchEnd"
+        hover-class="word-card--pressed"
+        aria-role="{{selectionMode ? 'checkbox' : 'button'}}"
+        aria-checked="{{selectionMode ? item.selected : false}}"
+        aria-label="{{selectionMode ? (item.selected ? '取消选择' : '选择') : '查看'}}{{item.content}}"
+      >
+        <view
+          wx:if="{{selectionMode}}"
+          class="word-card__selector-hit"
+        >
+          <view class="word-card__selector {{item.selected ? 'word-card__selector--selected' : ''}}">{{item.selected ? '✓' : ''}}</view>
+        </view>
+        <view wx:else class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
+        <view class="word-card__main">
+          <view class="word-card__topline">
+            <view class="word-card__content">{{item.content}}</view>
+            <view class="word-card__type">{{item.typeLabel}}</view>
+          </view>
+          <view class="word-card__categories">
+            <view class="word-card__category" wx:for="{{item.categoryLabels}}" wx:for-item="categoryLabel" wx:key="*this">{{categoryLabel}}</view>
+            <view wx:if="{{item.categoryOverflowCount}}" class="word-card__category">+{{item.categoryOverflowCount}}</view>
+            <view wx:if="{{!item.categoryLabels.length}}" class="word-card__category word-card__category--empty">未分类</view>
+          </view>
+          <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
+        </view>
+        <view
+          wx:if="{{!selectionMode}}"
+          class="word-card__edit"
+          data-id="{{item._id}}"
+          catchtap="onOpenEdit"
+          hover-class="word-card__edit--pressed"
+          aria-role="button"
+          aria-label="编辑{{item.content}}"
+        >编辑</view>
+      </view>
     </view>
     <view wx:if="{{loadingMore}}" class="load-more">正在加载更多</view>
     <view wx:elif="{{!hasMore}}" class="load-more">已经到底了</view>

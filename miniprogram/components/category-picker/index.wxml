@@ -12,15 +12,15 @@
       <view class="category-picker__chips">
         <button
           wx:if="{{showUncategorized}}"
-          class="category-picker__chip {{selectedIds.indexOf(uncategorizedId) >= 0 || (!filterMode && selectedIds.length === 0) ? 'category-picker__chip--selected' : ''}}"
+          class="category-picker__chip {{uncategorizedSelected ? 'category-picker__chip--selected' : ''}}"
           data-id="{{uncategorizedId}}"
           bindtap="onToggleCategory"
           disabled="{{disabled}}"
         >未分类</button>
         <button
-          wx:for="{{categories}}"
+          wx:for="{{displayCategories}}"
           wx:key="_id"
-          class="category-picker__chip {{selectedIds.indexOf(item._id) >= 0 ? 'category-picker__chip--selected' : ''}}"
+          class="category-picker__chip {{item.selected ? 'category-picker__chip--selected' : ''}}"
           data-id="{{item._id}}"
           bindtap="onToggleCategory"
           disabled="{{disabled}}"

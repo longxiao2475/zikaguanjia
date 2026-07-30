@@ -57,6 +57,8 @@ test('分类选择组件文件完整并在录入页和字卡库注册', () => {
     const config = JSON.parse(read(`miniprogram/pages/${page}/index.json`));
     assert.equal(config.usingComponents['category-picker'], '/components/category-picker/index');
   }
+  const pickerWxml = read('miniprogram/components/category-picker/index.wxml');
+  assert.equal(pickerWxml.includes('.indexOf('), false);
 });
 
 test('前端不再引用 QuickStart 页面和提示组件', () => {
@@ -258,6 +260,9 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxml.includes('category-filter-button'), true);
   assert.equal(libraryWxml.includes('word-card__category'), true);
   assert.equal(libraryWxml.includes('showCategoryFilterPicker'), true);
+  assert.equal(libraryWxml.includes('word-card-swipe'), true);
+  assert.equal(libraryWxml.includes('onCardTouchStart'), true);
+  assert.equal(libraryWxml.includes('onSwipeDelete'), true);
   assert.equal(libraryWxml.includes('编辑字卡'), true);
   assert.equal(libraryWxml.includes('删除字卡'), true);
   assert.equal(libraryWxml.includes('class="word-card__edit"'), true);

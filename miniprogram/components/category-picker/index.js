@@ -15,6 +15,23 @@ Component({
   data: {
     managing: false,
     uncategorizedId: UNCATEGORIZED_ID,
+    uncategorizedSelected: true,
+    displayCategories: [],
+  },
+
+  observers: {
+    'categories, selectedIds, filterMode': function syncSelection(categories, selectedIds, filterMode) {
+      const normalizedIds = normalizeSelectionIds(selectedIds);
+      const selectedIdSet = new Set(normalizedIds);
+      this.setData({
+        uncategorizedSelected: selectedIdSet.has(UNCATEGORIZED_ID)
+          || (!filterMode && normalizedIds.length === 0),
+        displayCategories: (categories || []).map((item) => ({
+          ...item,
+          selected: selectedIdSet.has(item._id),
+        })),
+      });
+    },
   },
 
   methods: {

@@ -192,12 +192,49 @@
   gap: 22rpx;
 }
 
+.word-card-swipe {
+  position: relative;
+  margin-bottom: 16rpx;
+  border-radius: var(--radius-card);
+  background: #C7443E;
+  overflow: hidden;
+}
+
+.word-card-swipe .word-card {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.word-card-swipe__delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 144rpx;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27rpx;
+  font-weight: 700;
+}
+
 .word-card {
+  position: relative;
+  z-index: 1;
   transition: background-color 120ms ease, transform 120ms ease;
 }
 
 .word-card--pressed {
   transform: scale(0.99);
+}
+
+.word-card--swipe-open {
+  transform: translateX(-144rpx);
+}
+
+.word-card--swipe-open.word-card--pressed {
+  transform: translateX(-144rpx) scale(0.99);
 }
 
 .word-card--selected {

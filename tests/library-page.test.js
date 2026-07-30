@@ -66,6 +66,7 @@ function createContext(definition, data = {}) {
       pendingCategoryFilterIds: [],
       showCategoryFilterPicker: false,
       showEditCategoryPicker: false,
+      deletingCardId: '',
       selectedFilter: 'all',
       keyword: '',
       totalResults: 0,
@@ -302,6 +303,79 @@ test('普通模式点击整行打开按不重复单字拆分的详情', () => {
   assert.deepEqual(context.data.wordDetail.characters.map((item) => item.character), ['礼', '物']);
   assert.equal(context.data.wordDetail.characters[0].pinyin, 'lǐ');
   assert.equal(context.data.wordDetail.characters[1].pinyin, 'wù');
+});
+
+test('左滑只展开当前卡片，右滑或点击已展开卡片会关闭', () => {
+  const definition = loadLibraryPage();
+  const context = createContext(definition, {
+    items: [
+      { _id: 'card-1', content: '汽车', swipeOpen: false },
+      { _id: 'card-2', content: '苹果', swipeOpen: true },
+    ],
+  });
+
+  definition.onCardTouchStart.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    touches: [{ clientX: 120, clientY: 40 }],
+  });
+  definition.onCardTouchEnd.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    changedTouches: [{ clientX: 60, clientY: 44 }],
+  });
+  assert.deepEqual(context.data.items.map((item) => item.swipeOpen), [true, false]);
+
+  definition.onCardTap.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+  assert.deepEqual(context.data.items.map((item) => item.swipeOpen), [true, false]);
+  assert.equal(context.data.showWordDetail, false);
+  definition.onCardTap.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+  assert.deepEqual(context.data.items.map((item) => item.swipeOpen), [false, false]);
+  assert.equal(context.data.showWordDetail, false);
+
+  definition.onCardTouchStart.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    touches: [{ clientX: 60, clientY: 40 }],
+  });
+  definition.onCardTouchEnd.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    changedTouches: [{ clientX: 110, clientY: 43 }],
+  });
+  assert.equal(context.data.items[0].swipeOpen, false);
+});
+
+test('选择复习模式禁用左滑，滑动删除复用确认和软删除流程', async () => {
+  let modalOptions;
+  let deletePayload;
+  const definition = loadLibraryPage({
+    cardApi: {
+      deleteCard: async (value) => { deletePayload = value; },
+    },
+    wxApi: {
+      showModal: (options) => { modalOptions = options; },
+      showToast() {},
+      stopPullDownRefresh() {},
+    },
+  });
+  const card = { _id: 'card-1', content: '汽车', swipeOpen: false, status: 'active', proficiency: 'unfamiliar' };
+  const context = createContext(definition, { items: [card], totalResults: 1, selectionMode: true });
+  context.loadCards = async () => true;
+
+  definition.onCardTouchStart.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    touches: [{ clientX: 120, clientY: 40 }],
+  });
+  definition.onCardTouchEnd.call(context, {
+    currentTarget: { dataset: { id: 'card-1' } },
+    changedTouches: [{ clientX: 40, clientY: 42 }],
+  });
+  assert.equal(context.data.items[0].swipeOpen, false);
+
+  context.data.selectionMode = false;
+  definition.onSwipeDelete.call(context, { currentTarget: { dataset: { id: 'card-1' } } });
+  await modalOptions.success({ confirm: true });
+
+  assert.deepEqual(deletePayload, { childId: 'child-1', cardId: 'card-1' });
+  assert.deepEqual(context.data.items, []);
+  assert.equal(context.data.deletingCardId, '');
 });
 
 test('选择模式点击整行只切换选择，不打开详情', () => {
