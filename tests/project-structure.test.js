@@ -287,6 +287,20 @@ test('首页统计卡可导航到字卡库筛选', () => {
   assert.equal(indexWxml.includes('<button class="floating-add"'), false);
 });
 
+test('首页和字卡库明确标注每张卡的上次复习时间', () => {
+  const indexWxml = read('miniprogram/pages/index/index.wxml');
+  const libraryWxml = read('miniprogram/pages/library/index.wxml');
+  const libraryWxss = read('miniprogram/pages/library/index.wxss');
+
+  assert.equal(indexWxml.includes('上次复习：{{item.lastReviewLabel}}'), true);
+  assert.equal(libraryWxml.includes('上次复习：{{item.lastReviewLabel}}'), true);
+  assert.equal(libraryWxml.includes('已复习 {{item.reviewCount || 0}} 次'), true);
+  const metaRule = readRule(libraryWxss, '.word-card__meta');
+  assert.match(metaRule, /overflow:\s*hidden;/);
+  assert.match(metaRule, /text-overflow:\s*ellipsis;/);
+  assert.match(metaRule, /white-space:\s*nowrap;/);
+});
+
 test('字卡库包含搜索、多选和开始复习入口', () => {
   const libraryJs = read('miniprogram/pages/library/index.js');
   const libraryWxml = read('miniprogram/pages/library/index.wxml');

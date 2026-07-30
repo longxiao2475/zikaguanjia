@@ -441,6 +441,9 @@ button.library-filter-clear {
   margin-top: 10rpx;
   color: var(--color-text-secondary);
   font-size: 24rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .word-card__categories {

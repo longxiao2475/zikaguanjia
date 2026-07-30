@@ -138,7 +138,7 @@
             <view wx:if="{{item.categoryOverflowCount}}" class="word-card__category">+{{item.categoryOverflowCount}}</view>
             <view wx:if="{{!item.categoryLabels.length}}" class="word-card__category word-card__category--empty">未分类</view>
           </view>
-          <view class="word-card__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}} · 复习 {{item.reviewCount || 0}} 次</view>
+          <view class="word-card__meta">{{item.proficiencyLabel}} · 上次复习：{{item.lastReviewLabel}} · 已复习 {{item.reviewCount || 0}} 次</view>
         </view>
         <view
           wx:if="{{!selectionMode}}"

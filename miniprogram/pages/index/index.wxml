@@ -65,7 +65,7 @@
       <view class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
       <view class="review-row__content">
         <view class="review-row__word">{{item.content}}</view>
-        <view class="review-row__meta">{{item.proficiencyLabel}} · {{item.lastReviewLabel}}</view>
+        <view class="review-row__meta">{{item.proficiencyLabel}} · 上次复习：{{item.lastReviewLabel}}</view>
       </view>
       <view class="review-row__chevron">›</view>
     </view>

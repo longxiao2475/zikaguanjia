@@ -30,11 +30,11 @@ function getProficiencyMeta(proficiency) {
 }
 
 function formatLastReview(lastReviewAt, today = new Date()) {
-  if (!lastReviewAt) return '还没复习过';
+  if (!lastReviewAt) return '从未复习';
   const elapsed = Math.max(0, daysSince(lastReviewAt, today));
-  if (elapsed === 0) return '今天复习过';
-  if (elapsed === 1) return '昨天复习';
-  return `${elapsed} 天前复习`;
+  if (elapsed === 0) return '今天';
+  if (elapsed === 1) return '昨天';
+  return `${elapsed}天前`;
 }
 
 function decorateCard(card, today = new Date()) {

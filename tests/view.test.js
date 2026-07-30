@@ -19,9 +19,12 @@ test('熟练度元信息和复习时间文本稳定', () => {
     label: '一般',
     className: 'normal',
   });
-  assert.equal(formatLastReview(null), '还没复习过');
+  const today = new Date('2026-07-25T04:00:00.000Z');
+  assert.equal(formatLastReview(null), '从未复习');
+  assert.equal(formatLastReview('2026-07-25T01:00:00.000Z', today), '今天');
+  assert.equal(formatLastReview('2026-07-24T04:00:00.000Z', today), '昨天');
   assert.equal(
-    formatLastReview('2026-07-23T04:00:00.000Z', new Date('2026-07-25T04:00:00.000Z')),
-    '2 天前复习',
+    formatLastReview('2026-07-23T04:00:00.000Z', today),
+    '2天前',
   );
 });
