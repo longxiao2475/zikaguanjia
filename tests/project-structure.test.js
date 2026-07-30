@@ -254,6 +254,9 @@ test('提醒云函数配置每小时定时触发器', () => {
     type: 'timer',
     config: '0 0 * * * * *',
   }]);
+  assert.deepEqual(config.permissions, {
+    openapi: ['subscribeMessage.send'],
+  });
 });
 
 test('提醒云函数提供仅当前用户可读的当天状态诊断', () => {
