@@ -81,7 +81,7 @@ function createSyncSettingsService(repository) {
       throw businessError('CHILD_FORBIDDEN', '无权修改该孩子设置');
     }
     const reminderTime = typeof payload.reminderTime === 'string' ? payload.reminderTime.trim() : '';
-    if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)) {
+    if (!/^(?:[01]\d|2[0-3]):00$/.test(reminderTime)) {
       throw businessError('REMINDER_TIME_INVALID', '提醒时间格式无效');
     }
     if (typeof payload.reminderEnabled !== 'boolean') {

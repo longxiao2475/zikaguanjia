@@ -11,12 +11,24 @@ const DAY_OPTIONS = [
   { value: 0, label: '日' },
 ];
 
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => (
+  `${String(hour).padStart(2, '0')}:00`
+));
+
+function normalizeReminderTime(value) {
+  const match = String(value || '').match(/^(\d{2}):\d{2}$/);
+  if (!match || Number(match[1]) > 23) return '20:00';
+  return `${match[1]}:00`;
+}
+
 Page({
   data: {
     childId: '',
     childName: '',
     studyDays: [2, 4, 6],
     dayOptions: [],
+    hourOptions: HOUR_OPTIONS,
+    reminderHourIndex: 20,
     reminderTime: '20:00',
     reminderEnabled: true,
     subscriptionQuota: 0,
@@ -34,6 +46,7 @@ Page({
     const studyDays = Array.isArray(child.studyDays) && child.studyDays.length
       ? child.studyDays
       : [2, 4, 6];
+    const reminderTime = normalizeReminderTime(child.reminderTime);
     this.setData({
       childId: child._id,
       childName: child.name || '',
@@ -42,7 +55,8 @@ Page({
         ...day,
         selected: studyDays.includes(day.value),
       })),
-      reminderTime: child.reminderTime || '20:00',
+      reminderHourIndex: HOUR_OPTIONS.indexOf(reminderTime),
+      reminderTime,
       reminderEnabled: child.reminderEnabled !== false,
       subscriptionQuota: Number(user.subscriptionQuota || 0),
     });
@@ -85,7 +99,16 @@ Page({
   },
 
   onTimeChange(event) {
-    this.setData({ reminderTime: event.detail.value });
+    const requestedIndex = Number(event.detail.value);
+    const reminderHourIndex = Number.isInteger(requestedIndex)
+      && requestedIndex >= 0
+      && requestedIndex < HOUR_OPTIONS.length
+      ? requestedIndex
+      : 20;
+    this.setData({
+      reminderHourIndex,
+      reminderTime: HOUR_OPTIONS[reminderHourIndex],
+    });
   },
 
   onReminderToggle(event) {

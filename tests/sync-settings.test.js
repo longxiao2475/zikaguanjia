@@ -86,13 +86,13 @@ test('saveSettings 标准化昵称、认字日和提醒设置', async () => {
     childId: 'c1',
     name: ' 果果 ',
     studyDays: [6, 2, 2],
-    reminderTime: '19:30',
+    reminderTime: '19:00',
     reminderEnabled: false,
   });
 
   assert.equal(child.name, '果果');
   assert.deepEqual(child.studyDays, [2, 6]);
-  assert.equal(child.reminderTime, '19:30');
+  assert.equal(child.reminderTime, '19:00');
   assert.equal(child.reminderEnabled, false);
 });
 
@@ -111,6 +111,10 @@ test('saveSettings 拒绝空认字日、非法时间、过长昵称和越权孩�
   );
   await assert.rejects(
     () => service.saveSettings('openid-1', { ...valid, reminderTime: '25:00' }),
+    (error) => error.code === 'REMINDER_TIME_INVALID',
+  );
+  await assert.rejects(
+    () => service.saveSettings('openid-1', { ...valid, reminderTime: '19:30' }),
     (error) => error.code === 'REMINDER_TIME_INVALID',
   );
   await assert.rejects(

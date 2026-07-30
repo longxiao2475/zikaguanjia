@@ -355,3 +355,14 @@ test('设置页完整保留七天选择并移除开发阶段文案', () => {
   assert.equal(settingsWxss.includes('display: flex'), true);
   assert.equal(settingsWxss.includes('flex-wrap: wrap'), true);
 });
+
+test('设置页只提供整点小时选择', () => {
+  const settingsJs = read('miniprogram/pages/settings/index.js');
+  const settingsWxml = read('miniprogram/pages/settings/index.wxml');
+
+  assert.equal(settingsJs.includes('Array.from({ length: 24 }'), true);
+  assert.equal(settingsWxml.includes('mode="time"'), false);
+  assert.equal(settingsWxml.includes('mode="selector"'), true);
+  assert.equal(settingsWxml.includes('range="{{hourOptions}}"'), true);
+  assert.equal(settingsWxml.includes('value="{{reminderHourIndex}}"'), true);
+});

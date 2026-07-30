@@ -35,9 +35,14 @@
     <view class="settings-row">
       <view>
         <view class="settings-row__label">提醒时间</view>
-        <view class="settings-row__helper">每小时任务会在所选小时内发送</view>
+        <view class="settings-row__helper">到达所选整点后开始检查，失败会在当天继续补发</view>
       </view>
-      <picker mode="time" value="{{reminderTime}}" bindchange="onTimeChange">
+      <picker
+        mode="selector"
+        range="{{hourOptions}}"
+        value="{{reminderHourIndex}}"
+        bindchange="onTimeChange"
+      >
         <view class="settings-row__value">{{reminderTime}} ›</view>
       </picker>
     </view>
