@@ -23,11 +23,11 @@ function normalizeCustomWords(value) {
   return [...new Set(value.map(normalizeContent).filter(Boolean))].slice(0, 20);
 }
 
-function normalizeCategoryIds(value) {
+function normalizeCategoryIds(value, limit = 10) {
   if (!Array.isArray(value)) return [];
   return [...new Set(value
     .filter((id) => typeof id === 'string' && id.trim())
-    .map((id) => id.trim()))].slice(0, 10);
+    .map((id) => id.trim()))].slice(0, limit);
 }
 
 function createCardService(repository, options = {}) {
@@ -93,7 +93,7 @@ function createCardService(repository, options = {}) {
   async function list(openid, payload = {}) {
     await assertChildOwnership(openid, payload.childId);
     const allCards = sortCards(await repository.listActiveCards(payload.childId));
-    const categoryIds = normalizeCategoryIds(payload.categoryIds);
+    const categoryIds = normalizeCategoryIds(payload.categoryIds, 50);
     const includeUncategorized = payload.includeUncategorized === true;
     const hasCategoryFilter = categoryIds.length > 0 || includeUncategorized;
     const categoryIdSet = new Set(categoryIds);

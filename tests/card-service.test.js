@@ -227,6 +227,24 @@ test('列表分类多选使用 OR 并可同时包含未分类字卡', async () =
   assert.deepEqual(withUncategorized.counts, { all: 2, due: 2, mastered: 1 });
 });
 
+test('分类筛选允许覆盖全部默认分类而不受字卡分类数量上限影响', async () => {
+  const selectedCategoryIds = Array.from({ length: 12 }, (_, index) => `category-${index + 1}`);
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'target', childId: 'child-1', categoryIds: ['category-12'], status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+      { _id: 'other', childId: 'child-1', categoryIds: ['other'], status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const result = await service.list('openid-1', {
+    childId: 'child-1',
+    categoryIds: selectedCategoryIds,
+  });
+
+  assert.deepEqual(result.items.map((card) => card._id), ['target']);
+});
+
 test('按 ID 补查只返回当前孩子的活动字卡并保持请求顺序', async () => {
   const repository = createMemoryRepository({
     cards: [
