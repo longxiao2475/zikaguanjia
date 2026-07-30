@@ -287,4 +287,3 @@ Expected: no whitespace errors; only intended feature files are modified.
 - [ ] **Step 3: Review requirements**
 
 Confirm defaults, add/rename, add/edit selection, multi-select OR filter, uncategorized compatibility, single-open swipe, selection-mode disablement, confirmation, and soft delete are all covered by code and tests.
-
