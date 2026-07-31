@@ -68,8 +68,8 @@
   </block>
 
   <view wx:elif="{{!loading}}" class="surface-card empty-state">
-    <view class="empty-state__title">今天没有待复习字卡</view>
-    <view class="empty-state__text">录入新字后，系统会根据熟练度自动安排复习。</view>
+    <view class="empty-state__title">{{emptyTitle}}</view>
+    <view class="empty-state__text">{{emptyText}}</view>
     <button class="secondary-button review-empty__button" bindtap="onAddCard">录入新字</button>
   </view>
 

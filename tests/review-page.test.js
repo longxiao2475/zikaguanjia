@@ -7,7 +7,7 @@ const { markCurrent } = require('../miniprogram/utils/review-flow');
 
 const pagePath = path.join(__dirname, '../miniprogram/pages/review/index.js');
 
-function loadReviewPage({ cardApi, wxApi } = {}) {
+function loadReviewPage({ cardApi, cacheApi, wxApi } = {}) {
   const originalLoad = Module._load;
   let definition;
   global.Page = (config) => { definition = config; };
@@ -17,7 +17,7 @@ function loadReviewPage({ cardApi, wxApi } = {}) {
   };
   Module._load = function mockLoad(request, parent, isMain) {
     if (request === '../../utils/cache') {
-      return {
+      return cacheApi || {
         getTodayPlan: () => null,
         getManualReviewQueue: () => null,
         clearManualReviewQueue() {},
@@ -32,7 +32,6 @@ function loadReviewPage({ cardApi, wxApi } = {}) {
       };
     }
     if (request === '../../utils/subscribe') return { requestGrant: async () => ({ accepted: false }) };
-    if (request === '../../utils/review-queue') return { mergeReviewCards: (left, right) => [...left, ...right] };
     if (request === '../../utils/view') return { decorateCard: (card) => card };
     return originalLoad(request, parent, isMain);
   };
@@ -65,6 +64,8 @@ function createContext(definition, data = {}) {
       showOrderSheet: false,
       pendingOrderItems: [],
       orderAreaHeight: 0,
+      emptyTitle: '今天没有待复习字卡',
+      emptyText: '录入新字后，系统会根据熟练度自动安排复习。',
       ...data,
     },
     setData(update) {
@@ -267,4 +268,68 @@ test('复习详情保存补充组词后同步当前卡和详情', async () => {
   assert.equal(context.data.wordDetail.characters[1].words.includes('物品'), true);
   assert.equal(context.data.wordDetail.characters[0].inputValue, '礼貌草稿');
   assert.equal(context.data.wordDetail.characters[1].inputValue, '');
+});
+
+test('首页批次入口只加载 replace 队列中的有效字卡', async () => {
+  let cleared = 0;
+  const definition = loadReviewPage({
+    cacheApi: {
+      getTodayPlan: () => null,
+      getManualReviewQueue: () => ({ cardIds: ['picked'], mode: 'replace', createdAt: 1 }),
+      clearManualReviewQueue: () => { cleared += 1; },
+    },
+    cardApi: {
+      getTodayPlan: async () => ({ cards: [{ _id: 'auto' }] }),
+      getCardsByIds: async () => [{ _id: 'picked' }],
+    },
+  });
+  const context = createContext(definition);
+  context._manualSource = true;
+  context._batchSource = true;
+
+  await definition.loadPlan.call(context);
+
+  assert.deepEqual(context.data.cards.map((card) => card._id), ['picked']);
+  assert.equal(cleared, 1);
+});
+
+test('字卡库手动选择仍将字卡追加到系统计划', async () => {
+  const definition = loadReviewPage({
+    cacheApi: {
+      getTodayPlan: () => null,
+      getManualReviewQueue: () => ({ cardIds: ['manual'], mode: 'append', createdAt: 1 }),
+      clearManualReviewQueue() {},
+    },
+    cardApi: {
+      getTodayPlan: async () => ({ cards: [{ _id: 'auto' }] }),
+      getCardsByIds: async () => [{ _id: 'manual' }],
+    },
+  });
+  const context = createContext(definition);
+  context._manualSource = true;
+  context._batchSource = false;
+
+  await definition.loadPlan.call(context);
+
+  assert.deepEqual(context.data.cards.map((card) => card._id), ['auto', 'manual']);
+});
+
+test('首页批次队列失效时不回退到全部待复习', async () => {
+  const definition = loadReviewPage({
+    cacheApi: {
+      getTodayPlan: () => null,
+      getManualReviewQueue: () => null,
+      clearManualReviewQueue() {},
+    },
+    cardApi: { getTodayPlan: async () => ({ cards: [{ _id: 'auto' }] }) },
+  });
+  const context = createContext(definition);
+  context._manualSource = true;
+  context._batchSource = true;
+
+  await definition.loadPlan.call(context);
+
+  assert.deepEqual(context.data.cards, []);
+  assert.equal(context.data.emptyTitle, '本批字卡已不可用');
+  assert.equal(context.data.emptyText, '请返回首页，重新选择本批要复习的字卡。');
 });

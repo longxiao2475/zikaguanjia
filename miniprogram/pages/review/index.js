@@ -13,7 +13,7 @@ const {
   getOrderPreviewIndex,
   reorderPendingCards,
 } = require('../../utils/review-order');
-const { mergeReviewCards } = require('../../utils/review-queue');
+const { resolveReviewCards } = require('../../utils/review-queue');
 const { decorateCard } = require('../../utils/view');
 const {
   getWordDetail,
@@ -47,10 +47,13 @@ Page({
     showOrderSheet: false,
     pendingOrderItems: [],
     orderAreaHeight: 0,
+    emptyTitle: '今天没有待复习字卡',
+    emptyText: '录入新字后，系统会根据熟练度自动安排复习。',
   },
 
   onLoad(options = {}) {
-    this._manualSource = options.source === 'manual';
+    this._manualSource = options.source === 'manual' || options.source === 'batch';
+    this._batchSource = options.source === 'batch';
     const cached = cache.getTodayPlan();
     if (cached && !this._manualSource) this.applyPlan(cached);
     this.loadPlan();
@@ -118,13 +121,26 @@ Page({
         const queue = cache.getManualReviewQueue();
         if (queue && queue.cardIds.length) {
           const manualCards = await cardApi.getCardsByIds(child._id, queue.cardIds);
-          cards = mergeReviewCards(cards, manualCards);
+          cards = resolveReviewCards(cards, manualCards, queue.mode);
           if (manualCards.length < queue.cardIds.length) {
             wx.showToast({ title: '部分字卡已不可用', icon: 'none' });
           }
           cache.clearManualReviewQueue();
+          if (queue.mode === 'replace' && !cards.length) {
+            this.setData({
+              emptyTitle: '本批字卡已不可用',
+              emptyText: '请返回首页，重新选择本批要复习的字卡。',
+            });
+          }
+        } else if (this._batchSource) {
+          cards = [];
+          this.setData({
+            emptyTitle: '本批字卡已不可用',
+            emptyText: '请返回首页，重新选择本批要复习的字卡。',
+          });
         }
         this._manualSource = false;
+        this._batchSource = false;
       }
 
       this.applyPlan({ ...plan, cards });
