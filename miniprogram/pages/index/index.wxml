@@ -43,8 +43,16 @@
 
   <view class="section-heading">
     <view class="section-title section-heading__title">今日待复习</view>
-    <button class="text-button section-heading__more" data-filter="all" bindtap="onOpenLibrary">全部字卡</button>
-    <view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前</view>
+    <view class="section-heading__actions">
+      <block wx:if="{{!reviewSelectionMode}}">
+        <button class="text-button section-heading__action" bindtap="onToggleReviewSelectionMode">管理本次</button>
+        <button class="text-button section-heading__action" data-filter="all" bindtap="onOpenLibrary">全部字卡</button>
+      </block>
+      <button wx:else class="text-button section-heading__action" bindtap="onToggleReviewSelectionMode">退出管理</button>
+    </view>
+    <view class="section-heading__subtitle">
+      {{reviewSelectionMode ? '请选择这一批要复习的字卡' : '不熟优先，同档越久没复习越靠前'}}
+    </view>
   </view>
 
   <view wx:if="{{showSkeleton}}" class="surface-card loading-card">
@@ -55,17 +63,24 @@
 
   <view wx:elif="{{previewCards.length}}" class="review-list surface-card">
     <view
-      class="review-row tap-card"
+      class="review-row tap-card {{reviewSelectionMode ? 'review-row--selecting' : ''}} {{item.selected ? 'review-row--selected' : ''}}"
       wx:for="{{previewCards}}"
       wx:key="_id"
-      bindtap="onReview"
+      data-id="{{item._id}}"
+      bindtap="onToggleReviewCard"
     >
       <view class="proficiency-dot proficiency-dot--{{item.proficiencyClass}}"></view>
       <view class="review-row__content">
         <view class="review-row__word">{{item.content}}</view>
         <view class="review-row__meta">{{item.proficiencyLabel}} · 上次复习：{{item.lastReviewLabel}}</view>
       </view>
-      <view class="review-row__chevron">›</view>
+      <view
+        wx:if="{{reviewSelectionMode}}"
+        class="review-row__selector {{item.selected ? 'review-row__selector--selected' : ''}}"
+        aria-role="checkbox"
+        aria-checked="{{item.selected}}"
+      >{{item.selected ? '✓' : ''}}</view>
+      <view wx:else class="review-row__chevron">›</view>
     </view>
   </view>
 
@@ -75,12 +90,30 @@
     <button class="secondary-button empty-state__button" bindtap="onAddCard">录入第一个字</button>
   </view>
 
-  <view class="quick-actions">
+  <view wx:if="{{reviewSelectionMode && previewCards.length}}" class="review-batch-panel surface-card">
+    <view class="review-batch-panel__summary">
+      <view class="review-batch-panel__copy">
+        <view class="review-batch-panel__title">已选 {{selectedReviewCount}} 张</view>
+        <view class="review-batch-panel__hint">每批最多50张，未选择的字卡仍会留在待复习中</view>
+      </view>
+      <button class="text-button review-batch-panel__select-all" bindtap="onToggleAllReviewCards">
+        {{allReviewCardsSelected ? '取消全选' : '全选'}}
+      </button>
+    </view>
+    <button
+      class="primary-button review-batch-panel__start"
+      bindtap="onStartSelectedReview"
+      disabled="{{selectedReviewCount === 0}}"
+    >开始本批复习</button>
+  </view>
+
+  <view wx:if="{{!reviewSelectionMode}}" class="quick-actions">
     <button class="primary-button quick-actions__button" bindtap="onAddCard">录入新字</button>
     <button class="secondary-button quick-actions__button" bindtap="onReview" disabled="{{plan.overview.due === 0}}">开始复习</button>
   </view>
 
   <view
+    wx:if="{{!reviewSelectionMode}}"
     class="floating-add"
     bindtap="onAddCard"
     hover-class="floating-add--pressed"

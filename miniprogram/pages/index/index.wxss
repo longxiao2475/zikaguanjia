@@ -167,14 +167,25 @@
   white-space: nowrap;
 }
 
-.section-heading__more {
+.section-heading__actions {
   grid-area: action;
-  width: auto;
+  min-width: 0;
   margin-left: auto;
   margin-right: 0;
   justify-self: end;
-  flex: 0 0 auto;
-  min-height: 72rpx;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4rpx 10rpx;
+}
+
+button.section-heading__action {
+  width: auto;
+  min-width: 0;
+  min-height: 68rpx;
+  padding: 0 10rpx;
+  margin: 0;
   font-size: 25rpx;
 }
 
@@ -237,6 +248,87 @@
   font-size: 38rpx;
 }
 
+.review-row--selecting {
+  transition: background-color 160ms ease;
+}
+
+.review-row--selected {
+  background: #FFF4EE;
+}
+
+.review-row__selector {
+  width: 46rpx;
+  height: 46rpx;
+  border: 3rpx solid #D8D1CB;
+  border-radius: 50%;
+  color: #FFFFFF;
+  background: #FFFFFF;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28rpx;
+  font-weight: 720;
+  line-height: 1;
+}
+
+.review-row__selector--selected {
+  border-color: var(--color-primary-dark);
+  background: var(--color-primary-dark);
+  box-shadow: 0 6rpx 14rpx rgba(230, 112, 74, 0.24);
+}
+
+.review-batch-panel {
+  margin-top: 18rpx;
+  padding: 24rpx;
+  border-color: #F2D5C8;
+  background: #FFF9F6;
+}
+
+.review-batch-panel__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+
+.review-batch-panel__copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.review-batch-panel__title {
+  font-size: 29rpx;
+  font-weight: 700;
+}
+
+.review-batch-panel__hint {
+  margin-top: 6rpx;
+  color: var(--color-text-secondary);
+  font-size: 23rpx;
+  line-height: 1.45;
+}
+
+button.review-batch-panel__select-all {
+  width: auto;
+  min-width: 118rpx;
+  min-height: 68rpx;
+  margin: 0;
+  padding: 0 14rpx;
+  flex: 0 0 auto;
+  font-size: 25rpx;
+}
+
+button.review-batch-panel__start {
+  width: 100%;
+  margin-top: 22rpx;
+}
+
+button.review-batch-panel__start[disabled] {
+  opacity: 0.46;
+}
+
 .quick-actions {
   margin-top: 28rpx;
   display: grid;
@@ -293,4 +385,23 @@
 
 .loading-line--wide {
   width: 78%;
+}
+
+@media (max-width: 360px) {
+  .section-heading {
+    column-gap: 12rpx;
+  }
+
+  .section-heading__actions {
+    gap: 2rpx 4rpx;
+  }
+
+  button.section-heading__action {
+    padding: 0 6rpx;
+    font-size: 23rpx;
+  }
+
+  .review-batch-panel {
+    padding: 22rpx;
+  }
 }

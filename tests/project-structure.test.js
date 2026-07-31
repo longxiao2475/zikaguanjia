@@ -199,7 +199,7 @@ test('复习页补查并消费临时复习队列', () => {
   for (const token of [
     'getManualReviewQueue',
     'getCardsByIds',
-    'mergeReviewCards',
+    'resolveReviewCards',
     'clearManualReviewQueue',
   ]) {
     assert.equal(reviewJs.includes(token), true, `missing ${token}`);
@@ -307,16 +307,49 @@ test('首页全部字卡靠右且复习说明独占下一行', () => {
 
   assert.match(
     indexWxml,
-    /<view class="section-heading">\s*<view class="section-title section-heading__title">今日待复习<\/view>\s*<button[^>]*class="text-button section-heading__more"[^>]*>全部字卡<\/button>\s*<view class="section-heading__subtitle">不熟优先，同档越久没复习越靠前<\/view>\s*<\/view>/s,
+    /<view class="section-heading">\s*<view class="section-title section-heading__title">今日待复习<\/view>\s*<view class="section-heading__actions">[\s\S]*全部字卡[\s\S]*<\/view>\s*<view class="section-heading__subtitle">/s,
   );
   assert.match(readRule(indexWxss, '.section-heading'), /display:\s*grid;/);
   assert.match(readRule(indexWxss, '.section-heading'), /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto;/);
   assert.match(readRule(indexWxss, '.section-heading__title'), /grid-area:\s*title;/);
   assert.match(readRule(indexWxss, '.section-heading__subtitle'), /grid-area:\s*subtitle;/);
   assert.match(readRule(indexWxss, '.section-heading__subtitle'), /white-space:\s*nowrap;/);
-  assert.match(readRule(indexWxss, '.section-heading__more'), /grid-area:\s*action;/);
-  assert.match(readRule(indexWxss, '.section-heading__more'), /justify-self:\s*end;/);
-  assert.match(readRule(indexWxss, '.section-heading__more'), /margin-right:\s*0;/);
+  assert.match(readRule(indexWxss, '.section-heading__actions'), /grid-area:\s*action;/);
+  assert.match(readRule(indexWxss, '.section-heading__actions'), /justify-self:\s*end;/);
+  assert.match(readRule(indexWxss, '.section-heading__actions'), /display:\s*flex;/);
+  assert.match(readRule(indexWxss, '.section-heading__actions'), /flex-wrap:\s*wrap;/);
+});
+
+test('首页支持原地选择本批复习字卡且操作区不会横向溢出', () => {
+  const indexJs = read('miniprogram/pages/index/index.js');
+  const indexWxml = read('miniprogram/pages/index/index.wxml');
+  const indexWxss = read('miniprogram/pages/index/index.wxss');
+
+  for (const token of [
+    'onToggleReviewSelectionMode',
+    'onToggleReviewCard',
+    'onToggleAllReviewCards',
+    'onStartSelectedReview',
+  ]) {
+    assert.equal(indexJs.includes(token), true, `missing ${token}`);
+  }
+  for (const token of [
+    '管理本次',
+    'review-row__selector',
+    'review-batch-panel',
+    '开始本批复习',
+    'selectedReviewCount',
+  ]) {
+    assert.equal(indexWxml.includes(token), true, `missing ${token}`);
+  }
+
+  const selectorRule = readRule(indexWxss, '.review-row__selector');
+  assert.match(selectorRule, /display:\s*flex;/);
+  assert.match(selectorRule, /align-items:\s*center;/);
+  assert.match(selectorRule, /justify-content:\s*center;/);
+  assert.match(readRule(indexWxss, '.review-batch-panel__summary'), /display:\s*flex;/);
+  assert.match(readRule(indexWxss, 'button.review-batch-panel__start'), /width:\s*100%;/);
+  assert.match(readRule(indexWxss, '.section-heading__actions'), /min-width:\s*0;/);
 });
 
 test('字卡库包含搜索、多选和开始复习入口', () => {

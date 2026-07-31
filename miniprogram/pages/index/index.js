@@ -5,10 +5,16 @@ const subscribe = require('../../utils/subscribe');
 const { getHomeBanners } = require('../../utils/home');
 const { isStudyDay } = require('../../utils/review');
 const {
+  buildReviewSelectionState,
+  toggleSelectedId,
+} = require('../../utils/review-queue');
+const {
   decorateCard,
   formatDisplayDate,
   getGreeting,
 } = require('../../utils/view');
+
+const MAX_REVIEW_BATCH_SIZE = 50;
 
 const EMPTY_PLAN = Object.freeze({
   cards: [],
@@ -31,6 +37,10 @@ Page({
     showQuotaBanner: false,
     subscriptionQuota: 0,
     subscribing: false,
+    reviewSelectionMode: false,
+    selectedReviewIds: [],
+    selectedReviewCount: 0,
+    allReviewCardsSelected: false,
   },
 
   onLoad() {
@@ -57,13 +67,23 @@ Page({
     const studyDay = isStudyDay(child || {}, now);
     const quota = user && user.subscriptionQuota;
     const banners = getHomeBanners({ studyDay, due: safePlan.overview.due, quota });
+    const reviewSelection = buildReviewSelectionState(
+      safePlan.cards,
+      this.data.selectedReviewIds,
+      this.data.reviewSelectionMode,
+    );
+    const selectableReviewCount = Math.min(safePlan.cards.length, MAX_REVIEW_BATCH_SIZE);
     this.setData({
       greeting: getGreeting(now),
       dateLabel: formatDisplayDate(now),
       childName: (child && child.name) || '小朋友',
       isStudyDay: studyDay,
       plan: safePlan,
-      previewCards: safePlan.cards.slice(0, 6).map((card) => decorateCard(card, now)),
+      previewCards: reviewSelection.cards.map((card) => decorateCard(card, now)),
+      selectedReviewIds: reviewSelection.selectedIds,
+      selectedReviewCount: reviewSelection.selectedCount,
+      allReviewCardsSelected: selectableReviewCount > 0
+        && reviewSelection.selectedCount === selectableReviewCount,
       showStudyBanner: banners.showStudyBanner,
       showQuotaBanner: banners.showQuotaBanner,
       subscriptionQuota: Number(quota || 0),
@@ -107,6 +127,76 @@ Page({
 
   onReview() {
     wx.navigateTo({ url: '/pages/review/index' });
+  },
+
+  updateReviewSelection(selectedIds, reviewSelectionMode = this.data.reviewSelectionMode) {
+    const limitedIds = (Array.isArray(selectedIds) ? selectedIds : [])
+      .slice(0, MAX_REVIEW_BATCH_SIZE);
+    const selection = buildReviewSelectionState(
+      this.data.plan.cards,
+      limitedIds,
+      reviewSelectionMode,
+    );
+    const selectableCount = Math.min(this.data.plan.cards.length, MAX_REVIEW_BATCH_SIZE);
+    this.setData({
+      reviewSelectionMode,
+      previewCards: selection.cards.map((card) => decorateCard(card)),
+      selectedReviewIds: selection.selectedIds,
+      selectedReviewCount: selection.selectedCount,
+      allReviewCardsSelected: selectableCount > 0
+        && selection.selectedCount === selectableCount,
+    });
+  },
+
+  onToggleReviewSelectionMode() {
+    this.updateReviewSelection([], !this.data.reviewSelectionMode);
+  },
+
+  onToggleReviewCard(event) {
+    const cardId = event.currentTarget.dataset.id;
+    if (!this.data.reviewSelectionMode) {
+      this.onReview();
+      return;
+    }
+    const selectingNewCard = !this.data.selectedReviewIds.includes(cardId);
+    if (selectingNewCard && this.data.selectedReviewCount >= MAX_REVIEW_BATCH_SIZE) {
+      wx.showToast({ title: '每批最多选择50张', icon: 'none' });
+      return;
+    }
+    this.updateReviewSelection(
+      toggleSelectedId(this.data.selectedReviewIds, cardId),
+      true,
+    );
+  },
+
+  onToggleAllReviewCards() {
+    const nextIds = this.data.allReviewCardsSelected
+      ? []
+      : this.data.plan.cards.slice(0, MAX_REVIEW_BATCH_SIZE).map((card) => card._id);
+    this.updateReviewSelection(nextIds, true);
+  },
+
+  onStartSelectedReview() {
+    if (!this.data.selectedReviewIds.length) return;
+    try {
+      const queue = cache.setManualReviewQueue(
+        this.data.selectedReviewIds,
+        Date.now(),
+        'replace',
+      );
+      if (!queue) throw new Error('本批字卡保存失败');
+      wx.navigateTo({
+        url: '/pages/review/index?source=batch',
+        success: () => this.updateReviewSelection([], false),
+        fail: () => {
+          cache.clearManualReviewQueue();
+          wx.showToast({ title: '进入复习失败，请重试', icon: 'none' });
+        },
+      });
+    } catch (error) {
+      cache.clearManualReviewQueue();
+      wx.showToast({ title: error.message || '本批字卡保存失败', icon: 'none' });
+    }
   },
 
   onOpenLibrary(event = {}) {
