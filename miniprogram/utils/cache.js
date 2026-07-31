@@ -2,6 +2,7 @@ const { normalizeIds } = require('./review-queue');
 
 const MANUAL_REVIEW_QUEUE_TTL_MS = 30 * 60 * 1000;
 const LIBRARY_FILTERS = new Set(['all', 'due', 'mastered']);
+const REVIEW_QUEUE_MODES = new Set(['append', 'replace']);
 
 const KEYS = Object.freeze({
   user: 'zkg:user',
@@ -26,6 +27,10 @@ function write(key, value) {
 
 function clearBusinessCache() {
   Object.values(KEYS).forEach((key) => wx.removeStorageSync(key));
+}
+
+function normalizeReviewQueueMode(mode) {
+  return REVIEW_QUEUE_MODES.has(mode) ? mode : 'append';
 }
 
 module.exports = {
@@ -54,13 +59,17 @@ module.exports = {
     wx.removeStorageSync(KEYS.libraryFilterIntent);
     return LIBRARY_FILTERS.has(filter) ? filter : null;
   },
-  setManualReviewQueue(cardIds, createdAt = Date.now()) {
+  setManualReviewQueue(cardIds, createdAt = Date.now(), mode = 'append') {
     const ids = normalizeIds(cardIds).slice(0, 50);
     if (!ids.length) {
       wx.removeStorageSync(KEYS.manualReviewQueue);
       return null;
     }
-    return write(KEYS.manualReviewQueue, { cardIds: ids, createdAt });
+    return write(KEYS.manualReviewQueue, {
+      cardIds: ids,
+      mode: normalizeReviewQueueMode(mode),
+      createdAt,
+    });
   },
   getManualReviewQueue(now = Date.now()) {
     const queue = read(KEYS.manualReviewQueue, null);
@@ -70,7 +79,11 @@ module.exports = {
       wx.removeStorageSync(KEYS.manualReviewQueue);
       return null;
     }
-    return { cardIds: ids, createdAt: queue.createdAt };
+    return {
+      cardIds: ids,
+      mode: normalizeReviewQueueMode(queue.mode),
+      createdAt: queue.createdAt,
+    };
   },
   clearManualReviewQueue() {
     wx.removeStorageSync(KEYS.manualReviewQueue);

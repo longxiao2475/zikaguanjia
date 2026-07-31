@@ -63,6 +63,7 @@ test('临时复习队列校验时效并由调用方成功后清除', () => {
   cache.setManualReviewQueue(['a', 'a', 'b'], 1000);
   assert.deepEqual(cache.getManualReviewQueue(1000 + 29 * 60 * 1000), {
     cardIds: ['a', 'b'],
+    mode: 'append',
     createdAt: 1000,
   });
   cache.clearManualReviewQueue();
@@ -70,4 +71,21 @@ test('临时复习队列校验时效并由调用方成功后清除', () => {
 
   cache.setManualReviewQueue(['a'], 1000);
   assert.equal(cache.getManualReviewQueue(1000 + 31 * 60 * 1000), null);
+});
+
+test('临时复习队列保存 replace 模式并将旧队列兼容为 append', () => {
+  cache.setManualReviewQueue(['a', 'b'], 1000, 'replace');
+  assert.deepEqual(cache.getManualReviewQueue(1001), {
+    cardIds: ['a', 'b'],
+    mode: 'replace',
+    createdAt: 1000,
+  });
+
+  storage.set(cache.KEYS.manualReviewQueue, { cardIds: ['old'], createdAt: 1000 });
+  assert.equal(cache.getManualReviewQueue(1001).mode, 'append');
+});
+
+test('非法队列模式按 append 处理', () => {
+  cache.setManualReviewQueue(['a'], 1000, 'unknown');
+  assert.equal(cache.getManualReviewQueue(1001).mode, 'append');
 });
