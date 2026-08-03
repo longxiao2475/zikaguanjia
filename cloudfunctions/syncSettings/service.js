@@ -28,6 +28,62 @@ function normalizeStudyDays(value) {
 function createSyncSettingsService(repository) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
 
+  async function ensureFamily(openid, user) {
+    let family = user.activeFamilyId
+      ? await repository.findFamilyById(user.activeFamilyId)
+      : null;
+    if (!family) family = await repository.findLegacyFamilyByCreator(openid);
+    if (!family) {
+      family = await repository.createFamily({
+        name: '我的家庭',
+        createdByOpenid: openid,
+        legacyOwnerOpenid: openid,
+        status: 'active',
+      });
+    }
+    return family;
+  }
+
+  async function migrateLegacyFamily(openid, user, child) {
+    const family = await ensureFamily(openid, user);
+    const legacyChildren = await repository.listActiveChildrenByOwner(openid);
+    const childIds = [...new Set([child, ...legacyChildren]
+      .filter(Boolean)
+      .map((item) => item._id))];
+
+    await repository.backfillChildrenFamily(openid, family._id);
+    await repository.backfillCardsFamily(childIds, family._id);
+    await repository.backfillCategoriesFamily(childIds, family._id);
+    await repository.backfillReviewSessionsFamily(childIds, family._id);
+    await repository.backfillReminderLogsFamily(childIds, family._id);
+
+    let member = await repository.findActiveMember(family._id, openid);
+    if (!member) {
+      member = await repository.createMember({
+        familyId: family._id,
+        openid,
+        role: 'owner',
+        status: 'active',
+        reminderTime: child.reminderTime || '20:00',
+        reminderEnabled: child.reminderEnabled !== false,
+      });
+    }
+
+    const activeCardCount = await repository.countActiveCards(childIds, family._id);
+    const updatedUser = await repository.updateUser(user._id, {
+      activeFamilyId: family._id,
+      familyMigrationVersion: 1,
+    });
+    const migratedChild = await repository.findChildById(child._id);
+    return {
+      user: updatedUser,
+      family,
+      member,
+      child: migratedChild,
+      migration: { activeCardCount, childCount: childIds.length },
+    };
+  }
+
   async function bootstrap(openid) {
     if (!openid || typeof openid !== 'string') throw new Error('OPENID_REQUIRED');
 
@@ -69,7 +125,7 @@ function createSyncSettingsService(repository) {
       user = await repository.updateUser(user._id, { defaultChildId: child._id });
     }
 
-    return { user, child };
+    return migrateLegacyFamily(openid, user, child);
   }
 
   async function saveSettings(openid, payload = {}) {

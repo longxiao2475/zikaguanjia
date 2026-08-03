@@ -11,6 +11,10 @@ function createFakeDb(seed = {}) {
     children: [...(seed.children || [])],
     cards: [...(seed.cards || [])],
     categories: [...(seed.categories || [])],
+    families: [...(seed.families || [])],
+    family_members: [...(seed.family_members || [])],
+    review_sessions: [...(seed.review_sessions || [])],
+    reminder_logs: [...(seed.reminder_logs || [])],
   };
 
   function matches(item, query) {
@@ -79,6 +83,45 @@ test('syncSettings 仓储写入服务端创建和更新时间', async () => {
   assert.equal(updated.defaultChildId, child._id);
   assert.equal(updatedChild.reminderTime, '19:30');
   assert.equal(updatedChild.updatedAt, 'SERVER_DATE');
+});
+
+test('syncSettings 仓储原地补齐家庭归属且不改变现有记录 id', async () => {
+  const db = createFakeDb({
+    users: [{ _id: 'user-1', openid: 'openid-1', status: 'active' }],
+    children: [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }],
+    cards: [
+      { _id: 'card-1', childId: 'child-1', status: 'active', reviewCount: 4 },
+      { _id: 'card-2', childId: 'child-1', status: 'deleted' },
+    ],
+    categories: [{ _id: 'category-1', childId: 'child-1', status: 'active' }],
+    review_sessions: [{ _id: 'review-1', childId: 'child-1', status: 'completed' }],
+    reminder_logs: [{ _id: 'reminder-1', childId: 'child-1', status: 'sent' }],
+  });
+  const repository = createSyncSettingsRepository(db);
+
+  const family = await repository.createFamily({
+    name: '我的家庭', createdByOpenid: 'openid-1', status: 'active',
+  });
+  const member = await repository.createMember({
+    familyId: family._id, openid: 'openid-1', role: 'owner', status: 'active',
+  });
+  await repository.backfillChildrenFamily('openid-1', family._id);
+  await repository.backfillCardsFamily(['child-1'], family._id);
+  await repository.backfillCategoriesFamily(['child-1'], family._id);
+  await repository.backfillReviewSessionsFamily(['child-1'], family._id);
+  await repository.backfillReminderLogsFamily(['child-1'], family._id);
+
+  assert.equal(member.createdAt, 'SERVER_DATE');
+  assert.equal(db.tables.children[0]._id, 'child-1');
+  assert.equal(db.tables.children[0].familyId, family._id);
+  assert.equal(db.tables.cards[0]._id, 'card-1');
+  assert.equal(db.tables.cards[0].reviewCount, 4);
+  assert.equal(db.tables.cards[0].familyId, family._id);
+  assert.equal(db.tables.categories[0].familyId, family._id);
+  assert.equal(db.tables.review_sessions[0].familyId, family._id);
+  assert.equal(db.tables.reminder_logs[0].familyId, family._id);
+  assert.equal(await repository.countActiveCards(['child-1'], family._id), 1);
+  assert.equal((await repository.findActiveMember(family._id, 'openid-1')).role, 'owner');
 });
 
 test('cardService 仓储只列出活动字卡并写入更新时间', async () => {

@@ -6,10 +6,22 @@ const { createSyncSettingsService } = require('../cloudfunctions/syncSettings/se
 function createMemoryRepository(seed = {}) {
   const users = [...(seed.users || [])];
   const children = [...(seed.children || [])];
+  const families = [...(seed.families || [])];
+  const members = [...(seed.members || [])];
+  const cards = [...(seed.cards || [])];
+  const categories = [...(seed.categories || [])];
+  const reviewSessions = [...(seed.reviewSessions || [])];
+  const reminderLogs = [...(seed.reminderLogs || [])];
 
   return {
     users,
     children,
+    families,
+    members,
+    cards,
+    categories,
+    reviewSessions,
+    reminderLogs,
     async findUserByOpenid(openid) {
       return users.find((item) => item.openid === openid) || null;
     },
@@ -38,6 +50,60 @@ function createMemoryRepository(seed = {}) {
       const child = children.find((item) => item._id === id);
       Object.assign(child, updates);
       return child;
+    },
+    async findFamilyById(id) {
+      return families.find((item) => item._id === id) || null;
+    },
+    async findLegacyFamilyByCreator(openid) {
+      return families.find((item) => item.createdByOpenid === openid && item.status === 'active') || null;
+    },
+    async createFamily(data) {
+      const family = { _id: `family-${families.length + 1}`, ...data };
+      families.push(family);
+      return family;
+    },
+    async findActiveMember(familyId, openid) {
+      return members.find((item) => (
+        item.familyId === familyId && item.openid === openid && item.status === 'active'
+      )) || null;
+    },
+    async createMember(data) {
+      const member = { _id: `member-${members.length + 1}`, ...data };
+      members.push(member);
+      return member;
+    },
+    async listActiveChildrenByOwner(openid) {
+      return children.filter((item) => item.ownerOpenid === openid && item.status === 'active');
+    },
+    async backfillChildrenFamily(openid, familyId) {
+      children
+        .filter((item) => item.ownerOpenid === openid && item.status === 'active')
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async backfillCardsFamily(childIds, familyId) {
+      cards
+        .filter((item) => childIds.includes(item.childId))
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async backfillCategoriesFamily(childIds, familyId) {
+      categories
+        .filter((item) => childIds.includes(item.childId))
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async backfillReviewSessionsFamily(childIds, familyId) {
+      reviewSessions
+        .filter((item) => childIds.includes(item.childId))
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async backfillReminderLogsFamily(childIds, familyId) {
+      reminderLogs
+        .filter((item) => childIds.includes(item.childId))
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async countActiveCards(childIds, familyId) {
+      return cards.filter((item) => (
+        childIds.includes(item.childId) && item.familyId === familyId && item.status === 'active'
+      )).length;
     },
   };
 }
@@ -68,6 +134,60 @@ test('重复 bootstrap 复用已存在用户和孩子', async () => {
   assert.equal(repository.users.length, 1);
   assert.equal(repository.children.length, 1);
   assert.equal(result.child.name, '果果');
+});
+
+test('bootstrap 原地迁移现有孩子和 69 张字卡并让原微信成为家庭 owner', async () => {
+  const cards = Array.from({ length: 69 }, (_, index) => ({
+    _id: `card-${index + 1}`,
+    ownerOpenid: 'openid-owner',
+    childId: 'child-existing',
+    content: `字${index + 1}`,
+    proficiency: index % 2 ? 'normal' : 'unfamiliar',
+    reviewCount: index,
+    status: 'active',
+  }));
+  const originalIds = cards.map((card) => card._id);
+  const repository = createMemoryRepository({
+    users: [{
+      _id: 'user-existing', openid: 'openid-owner', defaultChildId: 'child-existing',
+      subscriptionQuota: 2, status: 'active',
+    }],
+    children: [{
+      _id: 'child-existing', ownerOpenid: 'openid-owner', name: '果果', status: 'active',
+    }],
+    cards,
+  });
+  const service = createSyncSettingsService(repository);
+
+  const result = await service.bootstrap('openid-owner');
+
+  assert.equal(result.child._id, 'child-existing');
+  assert.equal(result.family.createdByOpenid, 'openid-owner');
+  assert.equal(result.member.role, 'owner');
+  assert.equal(result.member.openid, 'openid-owner');
+  assert.equal(result.migration.activeCardCount, 69);
+  assert.deepEqual(repository.cards.map((card) => card._id), originalIds);
+  assert.ok(repository.cards.every((card) => card.familyId === result.family._id));
+  assert.equal(result.user.activeFamilyId, result.family._id);
+  assert.equal(result.user.familyMigrationVersion, 1);
+});
+
+test('重复 bootstrap 复用同一个家庭和成员且不会重复迁移字卡', async () => {
+  const repository = createMemoryRepository({
+    users: [{ _id: 'u1', openid: 'openid-1', defaultChildId: 'c1', status: 'active' }],
+    children: [{ _id: 'c1', ownerOpenid: 'openid-1', status: 'active' }],
+    cards: [{ _id: 'card-1', childId: 'c1', status: 'active', reviewCount: 3 }],
+  });
+  const service = createSyncSettingsService(repository);
+
+  const first = await service.bootstrap('openid-1');
+  const second = await service.bootstrap('openid-1');
+
+  assert.equal(second.family._id, first.family._id);
+  assert.equal(repository.families.length, 1);
+  assert.equal(repository.members.length, 1);
+  assert.equal(repository.cards.length, 1);
+  assert.equal(repository.cards[0].reviewCount, 3);
 });
 
 test('拒绝空 openid', async () => {
