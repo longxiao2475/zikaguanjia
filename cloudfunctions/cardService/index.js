@@ -8,6 +8,7 @@ const repository = createCardRepository(cloud.database());
 const service = createCardService(repository);
 
 const actions = {
+  addReviewAssignments: service.addReviewAssignments,
   create: service.create,
   getByIds: service.getByIds,
   list: service.list,

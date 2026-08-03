@@ -50,7 +50,12 @@ test('bootstrap 缓存用户、孩子和同步时间', async () => {
   global.__cloudResponse = {
     result: {
       ok: true,
-      data: { user: { _id: 'u1' }, child: { _id: 'c1' } },
+      data: {
+        user: { _id: 'u1', activeFamilyId: 'f1' },
+        family: { _id: 'f1' },
+        member: { _id: 'm1', familyId: 'f1' },
+        child: { _id: 'c1', familyId: 'f1' },
+      },
     },
   };
 
@@ -58,10 +63,37 @@ test('bootstrap 缓存用户、孩子和同步时间', async () => {
 
   assert.equal(calls[0].name, 'syncSettings');
   assert.deepEqual(calls[0].data, { action: 'bootstrap' });
-  assert.deepEqual(cache.getUser(), { _id: 'u1' });
-  assert.deepEqual(cache.getChild(), { _id: 'c1' });
+  assert.deepEqual(cache.getUser(), { _id: 'u1', activeFamilyId: 'f1' });
+  assert.deepEqual(cache.getFamily(), { _id: 'f1' });
+  assert.deepEqual(cache.getMember(), { _id: 'm1', familyId: 'f1' });
+  assert.deepEqual(cache.getChild(), { _id: 'c1', familyId: 'f1' });
   assert.equal(typeof cache.getLastSyncAt(), 'number');
-  assert.deepEqual(result.child, { _id: 'c1' });
+  assert.deepEqual(result.child, { _id: 'c1', familyId: 'f1' });
+});
+
+test('bootstrap 切换家庭时清理上一家庭业务缓存', async () => {
+  cache.setFamily({ _id: 'family-1' });
+  cache.setCards([{ _id: 'old-card' }]);
+  cache.setCategories([{ _id: 'old-category' }]);
+  cache.setTodayPlan({ cards: [{ _id: 'old-card' }] });
+  global.__cloudResponse = {
+    result: {
+      ok: true,
+      data: {
+        user: { _id: 'u1', activeFamilyId: 'family-2' },
+        family: { _id: 'family-2' },
+        member: { _id: 'member-2', familyId: 'family-2' },
+        child: { _id: 'child-2', familyId: 'family-2' },
+      },
+    },
+  };
+
+  await session.bootstrap();
+
+  assert.deepEqual(cache.getCards(), []);
+  assert.deepEqual(cache.getCategories(), []);
+  assert.equal(cache.getTodayPlan(), null);
+  assert.equal(cache.getFamily()._id, 'family-2');
 });
 
 test('创建字卡后追加本地缓存，获取今日计划后覆盖计划缓存', async () => {
@@ -142,6 +174,24 @@ test('搜索列表透传 keyword，按 ID 补查调用 getByIds', async () => {
   assert.deepEqual(cards, [{ _id: 'a' }]);
 });
 
+test('加入今日待复习调用持久化接口并废弃今日计划缓存', async () => {
+  cache.setTodayPlan({ cards: [{ _id: 'old' }] });
+  global.__cloudResponse = {
+    result: { ok: true, data: { addedCount: 2, existingCount: 1, scheduledDate: '2026-08-03' } },
+  };
+
+  const result = await cardApi.addReviewAssignments({
+    childId: 'c1', cardIds: ['a', 'b', 'c'],
+  });
+
+  assert.deepEqual(calls[0], {
+    name: 'cardService',
+    data: { action: 'addReviewAssignments', childId: 'c1', cardIds: ['a', 'b', 'c'] },
+  });
+  assert.equal(cache.getTodayPlan(), null);
+  assert.equal(result.addedCount, 2);
+});
+
 test('完成复习后合并返回字卡并废弃今日计划缓存', async () => {
   cache.setCards([
     { _id: 'a', proficiency: 'unfamiliar' },
@@ -177,20 +227,45 @@ test('完成复习后合并返回字卡并废弃今日计划缓存', async () =>
   assert.equal(result.session._id, 's1');
 });
 
-test('保存孩子设置后只用云端返回值更新缓存', async () => {
+test('保存共享孩子设置和个人提醒后分别更新缓存', async () => {
   cache.setChild({ _id: 'c1', reminderTime: '20:00' });
   global.__cloudResponse = {
     result: {
       ok: true,
-      data: { _id: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false },
+      data: {
+        child: { _id: 'c1', familyId: 'f1', name: '果果', studyDays: [2, 6] },
+        member: {
+          _id: 'm1', familyId: 'f1', reminderTime: '19:00', reminderEnabled: false,
+        },
+      },
     },
   };
 
-  const child = await session.saveSettings({
-    childId: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false,
+  const result = await session.saveSettings({
+    childId: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:00', reminderEnabled: false,
   });
 
   assert.equal(calls[0].name, 'syncSettings');
   assert.equal(calls[0].data.action, 'saveSettings');
-  assert.deepEqual(cache.getChild(), child);
+  assert.deepEqual(cache.getChild(), result.child);
+  assert.deepEqual(cache.getMember(), result.member);
+});
+
+test('家庭 API 生成邀请码并获取加入预览', async () => {
+  global.__cloudResponse = {
+    result: { ok: true, data: { code: 'ABCD2345', expiresAt: '2026-08-04T00:00:00.000Z' } },
+  };
+  const invite = await session.createFamilyInvite();
+  assert.equal(invite.code, 'ABCD2345');
+  assert.deepEqual(calls[0].data, { action: 'createFamilyInvite' });
+
+  global.__cloudResponse = {
+    result: { ok: true, data: { familyName: '果果家庭', duplicateCardCount: 2 } },
+  };
+  const preview = await session.previewFamilyJoin(' abcd-2345 ');
+  assert.equal(preview.familyName, '果果家庭');
+  assert.deepEqual(calls[1].data, {
+    action: 'previewFamilyJoin',
+    code: ' abcd-2345 ',
+  });
 });

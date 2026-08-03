@@ -10,6 +10,7 @@ function createFakeDb(seed = {}) {
     subscription_events: [...(seed.subscription_events || [])],
     children: [...(seed.children || [])],
     cards: [...(seed.cards || [])],
+    family_members: [...(seed.family_members || [])],
   };
 
   function matches(item, query) {
@@ -80,16 +81,18 @@ function createFakeDb(seed = {}) {
 test('提醒仓储复用每日日志并累计尝试次数和状态', async () => {
   const db = createFakeDb({
     reminder_logs: [{
-      _id: 'log-1', ownerOpenid: 'openid-1', childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
+      _id: 'log-1', ownerOpenid: 'openid-1', recipientOpenid: 'openid-1', familyId: 'family-1',
+      childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
       status: 'failed', attemptCount: 1,
     }],
   });
   const repository = createReminderRepository(db);
 
   const found = await repository.findReminderLog({
-    childId: 'child-1', bizDate: '2026-07-30', templateId: 'tpl',
+    familyId: 'family-1', childId: 'child-1', recipientOpenid: 'openid-1',
+    bizDate: '2026-07-30', templateId: 'tpl',
   });
-  const owned = await repository.listReminderLogsByOwner('openid-1', '2026-07-30');
+  const owned = await repository.listReminderLogsByRecipient('openid-1', '2026-07-30');
   const attempted = await repository.beginAttempt(found._id, {
     dueCardCount: 2,
     dueCards: [{ cardId: 'card-1', contentSnapshot: '大' }],
@@ -108,6 +111,52 @@ test('提醒仓储复用每日日志并累计尝试次数和状态', async () =>
   assert.equal(quotaEmptyStatus, 'quota_empty');
   assert.equal(failed.status, 'failed');
   assert.equal(failed.errorCode, 'WX_FAIL');
+});
+
+test('提醒仓储按家庭成员生成接收目标并隔离每个接收人的日志', async () => {
+  const db = createFakeDb({
+    children: [
+      { _id: 'child-1', familyId: 'family-1', status: 'active', studyDays: [0] },
+      { _id: 'child-2', familyId: 'family-2', status: 'active', studyDays: [0] },
+    ],
+    family_members: [
+      {
+        _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active',
+        reminderEnabled: true, reminderTime: '20:00',
+      },
+      {
+        _id: 'member-2', familyId: 'family-1', openid: 'openid-2', status: 'active',
+        reminderEnabled: false, reminderTime: '20:00',
+      },
+      {
+        _id: 'member-3', familyId: 'family-2', openid: 'openid-3', status: 'active',
+        reminderEnabled: true, reminderTime: '19:00',
+      },
+    ],
+    cards: [
+      { _id: 'card-1', familyId: 'family-1', childId: 'child-1', status: 'active' },
+      { _id: 'foreign', familyId: 'family-2', childId: 'child-1', status: 'active' },
+    ],
+  });
+  const repository = createReminderRepository(db);
+
+  const targets = await repository.listReminderTargets();
+  const cards = await repository.listActiveCards('family-1', 'child-1');
+  await repository.createReminderLog({
+    familyId: 'family-1', childId: 'child-1', recipientOpenid: 'openid-1',
+    ownerOpenid: 'openid-1', bizDate: '2026-07-30', templateId: 'tpl', status: 'pending',
+  });
+  await repository.createReminderLog({
+    familyId: 'family-1', childId: 'child-1', recipientOpenid: 'openid-2',
+    ownerOpenid: 'openid-2', bizDate: '2026-07-30', templateId: 'tpl', status: 'pending',
+  });
+
+  assert.deepEqual(targets.map((item) => [item._id, item.recipientOpenid]), [
+    ['child-1', 'openid-1'],
+    ['child-2', 'openid-3'],
+  ]);
+  assert.deepEqual(cards.map((item) => item._id), ['card-1']);
+  assert.equal(db.tables.reminder_logs.length, 2);
 });
 
 test('提醒发送成功后事务扣一次额度并写入 sent 日志', async () => {

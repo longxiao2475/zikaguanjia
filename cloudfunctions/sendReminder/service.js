@@ -13,14 +13,16 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
 
   async function run(now = new Date()) {
     const context = getShanghaiContext(now);
-    const children = await repository.listReminderChildren();
+    const targets = await repository.listReminderTargets();
     const summary = { matched: 0, sent: 0, skipped: 0, failed: 0, alreadySent: 0 };
 
-    for (const child of children) {
-      if (!shouldRemindChild(child, context)) continue;
+    for (const target of targets) {
+      if (!shouldRemindChild(target, context)) continue;
       summary.matched += 1;
       let log = await repository.findReminderLog({
-        childId: child._id,
+        familyId: target.familyId,
+        childId: target._id,
+        recipientOpenid: target.recipientOpenid,
         bizDate: context.bizDate,
         templateId,
       });
@@ -29,14 +31,20 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
         continue;
       }
 
-      const dueCards = getDueCards(await repository.listActiveCards(child._id), now);
+      const dueCards = getDueCards(await repository.listActiveCards(
+        target.familyId,
+        target._id,
+      ), now);
       if (!log) {
         const logResult = await repository.createReminderLog({
-          ownerOpenid: child.ownerOpenid,
-          childId: child._id,
+          familyId: target.familyId,
+          ownerOpenid: target.recipientOpenid,
+          recipientOpenid: target.recipientOpenid,
+          memberId: target.memberId,
+          childId: target._id,
           bizDate: context.bizDate,
           templateId,
-          plannedAt: `${context.bizDate} ${child.reminderTime}`,
+          plannedAt: `${context.bizDate} ${target.reminderTime}`,
           dueCardCount: 0,
           dueCards: [],
           status: 'pending',
@@ -49,7 +57,9 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
           subscriptionEventId: null,
         });
         log = logResult.log || await repository.findReminderLog({
-          childId: child._id,
+          familyId: target.familyId,
+          childId: target._id,
+          recipientOpenid: target.recipientOpenid,
           bizDate: context.bizDate,
           templateId,
         });
@@ -73,7 +83,7 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
         continue;
       }
 
-      const user = await repository.findUserByOpenid(child.ownerOpenid);
+      const user = await repository.findUserByOpenid(target.recipientOpenid);
       if (!user || Number(user.subscriptionQuota || 0) <= 0) {
         await repository.markQuotaEmpty(log._id);
         summary.skipped += 1;
@@ -82,14 +92,14 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
 
       try {
         await sender.send({
-          touser: child.ownerOpenid,
+          touser: target.recipientOpenid,
           templateId,
           page: 'pages/review/index',
-          data: buildTemplateData(dueCards, context.bizDate, child.reminderTime),
+          data: buildTemplateData(dueCards, context.bizDate, target.reminderTime),
         });
         const consumed = await repository.consumeAndMarkSent({
           logId: log._id,
-          openid: child.ownerOpenid,
+          openid: target.recipientOpenid,
           templateId,
         });
         if (consumed.sent) summary.sent += 1;
@@ -107,7 +117,7 @@ function createReminderService({ repository, sender, templateId = TEMPLATE_ID } 
   async function getStatus(openid, now = new Date()) {
     if (!openid || typeof openid !== 'string') throw new Error('OPENID_REQUIRED');
     const context = getShanghaiContext(now);
-    const logs = await repository.listReminderLogsByOwner(openid, context.bizDate);
+    const logs = await repository.listReminderLogsByRecipient(openid, context.bizDate);
     return { bizDate: context.bizDate, logs };
   }
 

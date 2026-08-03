@@ -35,6 +35,16 @@ Page({
     loading: true,
     saving: false,
     subscribing: false,
+    familyName: '我的家庭',
+    familyMemberCount: 1,
+    memberRole: 'member',
+    familyInviteCode: '',
+    familyCodeInput: '',
+    familyGenerating: false,
+    familyPreviewing: false,
+    familyJoining: false,
+    showJoinPreview: false,
+    joinPreview: null,
     errorMessage: '',
   },
 
@@ -42,11 +52,11 @@ Page({
     this.loadSettings();
   },
 
-  applySession(user, child) {
+  applySession(user, child, member = {}) {
     const studyDays = Array.isArray(child.studyDays) && child.studyDays.length
       ? child.studyDays
       : [2, 4, 6];
-    const reminderTime = normalizeReminderTime(child.reminderTime);
+    const reminderTime = normalizeReminderTime(member.reminderTime || child.reminderTime);
     this.setData({
       childId: child._id,
       childName: child.name || '',
@@ -57,17 +67,37 @@ Page({
       })),
       reminderHourIndex: HOUR_OPTIONS.indexOf(reminderTime),
       reminderTime,
-      reminderEnabled: child.reminderEnabled !== false,
+      reminderEnabled: member.reminderEnabled !== undefined
+        ? member.reminderEnabled !== false
+        : child.reminderEnabled !== false,
       subscriptionQuota: Number(user.subscriptionQuota || 0),
+      memberRole: member.role || 'member',
+    });
+  },
+
+  applyFamilySummary(summary = {}) {
+    const family = summary.family || {};
+    const member = summary.member || {};
+    this.setData({
+      familyName: family.name || '我的家庭',
+      familyMemberCount: Number(summary.memberCount || 1),
+      memberRole: member.role || this.data.memberRole || 'member',
     });
   },
 
   async loadSettings() {
     this.setData({ errorMessage: '' });
     try {
-      let { user, child } = session.getCachedSession();
-      if (!user || !child) ({ user, child } = await session.bootstrap());
-      this.applySession(user, child);
+      let {
+        user,
+        child,
+        member,
+      } = session.getCachedSession();
+      if (!user || !child || !member) ({ user, child, member } = await session.bootstrap());
+      this.applySession(user, child, member);
+      if (typeof session.getFamilySummary === 'function') {
+        this.applyFamilySummary(await session.getFamilySummary());
+      }
     } catch (error) {
       this.setData({ errorMessage: error.message || '设置加载失败' });
     } finally {
@@ -113,6 +143,81 @@ Page({
 
   onReminderToggle(event) {
     this.setData({ reminderEnabled: event.detail.value });
+  },
+
+  swallow() {},
+
+  async onGenerateFamilyCode() {
+    if (this.data.familyGenerating || this.data.memberRole !== 'owner') return;
+    this.setData({ familyGenerating: true });
+    try {
+      const result = await session.createFamilyInvite();
+      this.setData({ familyInviteCode: result.code || '' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '家庭码生成失败', icon: 'none' });
+    } finally {
+      this.setData({ familyGenerating: false });
+    }
+  },
+
+  onCopyFamilyCode() {
+    if (!this.data.familyInviteCode) return;
+    wx.setClipboardData({
+      data: this.data.familyInviteCode,
+      success: () => wx.showToast({ title: '家庭码已复制', icon: 'success' }),
+    });
+  },
+
+  onFamilyCodeInput(event) {
+    this.setData({ familyCodeInput: event.detail.value, showJoinPreview: false });
+  },
+
+  async onPreviewFamilyJoin() {
+    if (this.data.familyPreviewing || this.data.familyJoining) return;
+    const code = String(this.data.familyCodeInput || '').trim();
+    if (!code) {
+      wx.showToast({ title: '请输入家庭码', icon: 'none' });
+      return;
+    }
+    this.setData({ familyPreviewing: true });
+    try {
+      const joinPreview = await session.previewFamilyJoin(code);
+      this._joinRequestId = '';
+      this.setData({ joinPreview, showJoinPreview: true });
+    } catch (error) {
+      wx.showToast({ title: error.message || '家庭码无效或已过期', icon: 'none' });
+    } finally {
+      this.setData({ familyPreviewing: false });
+    }
+  },
+
+  onCloseJoinPreview() {
+    if (this.data.familyJoining) return;
+    this.setData({ showJoinPreview: false });
+  },
+
+  async onConfirmFamilyJoin() {
+    if (this.data.familyJoining || !this.data.showJoinPreview) return;
+    const code = String(this.data.familyCodeInput || '').trim();
+    this._joinRequestId = this._joinRequestId
+      || `join_${Date.now()}_${Math.floor(Math.random() * 1000000).toString(36)}`;
+    this.setData({ familyJoining: true });
+    try {
+      await session.confirmFamilyJoin(code, this._joinRequestId);
+      this.applyFamilySummary(await session.getFamilySummary());
+      this._joinRequestId = '';
+      this.setData({
+        familyCodeInput: '',
+        familyInviteCode: '',
+        joinPreview: null,
+        showJoinPreview: false,
+      });
+      wx.showToast({ title: '已加入家庭', icon: 'success' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '加入家庭失败，请重试', icon: 'none' });
+    } finally {
+      this.setData({ familyJoining: false });
+    }
   },
 
   async onSave() {

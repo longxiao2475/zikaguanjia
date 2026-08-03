@@ -352,7 +352,7 @@ test('首页支持原地选择本批复习字卡且操作区不会横向溢出',
   assert.match(readRule(indexWxss, '.section-heading__actions'), /min-width:\s*0;/);
 });
 
-test('字卡库包含搜索、多选和开始复习入口', () => {
+test('字卡库包含搜索、多选和加入今日待复习入口', () => {
   const libraryJs = read('miniprogram/pages/library/index.js');
   const libraryWxml = read('miniprogram/pages/library/index.wxml');
   const libraryWxss = read('miniprogram/pages/library/index.wxss');
@@ -362,7 +362,7 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
     'onToggleSelectionMode',
     'onToggleCardSelection',
     'onCardTap',
-    'onStartSelectedReview',
+    'onAddSelectedToToday',
     'onOpenEdit',
     'onSaveEdit',
     'onDeleteCard',
@@ -374,7 +374,10 @@ test('字卡库包含搜索、多选和开始复习入口', () => {
   assert.equal(libraryWxml.includes('word-card__selector-hit'), true);
   assert.equal(libraryWxml.includes('<button\n        wx:if="{{selectionMode}}"\n        class="word-card__selector'), false);
   assert.equal(libraryWxml.includes('已选 {{selectedCount}} 张'), true);
-  assert.equal(libraryWxml.includes('开始复习'), true);
+  assert.equal(libraryWxml.includes('加入今日待复习'), true);
+  assert.equal(libraryWxml.includes('bindtap="onAddSelectedToToday"'), true);
+  assert.equal(libraryJs.includes('setManualReviewQueue'), false);
+  assert.equal(libraryJs.includes("/pages/review/index?source=manual"), false);
   assert.equal(libraryWxml.includes('library-filter-category'), true);
   assert.equal(libraryWxml.includes('word-card__category'), true);
   assert.equal(libraryWxml.includes('showCategoryFilterPicker'), true);

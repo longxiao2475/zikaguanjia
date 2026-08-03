@@ -14,8 +14,14 @@ const {
 function createMemoryRepository(seed = {}) {
   const children = [...(seed.children || [
     {
-      _id: 'child-1', ownerOpenid: 'openid-1', name: '果果', status: 'active',
-      reminderEnabled: true, reminderTime: '20:00', studyDays: [0],
+      _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', name: '果果',
+      status: 'active', studyDays: [0],
+    },
+  ])];
+  const members = [...(seed.members || [
+    {
+      _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active',
+      reminderEnabled: true, reminderTime: '20:00',
     },
   ])];
   const users = [...(seed.users || [
@@ -40,34 +46,53 @@ function createMemoryRepository(seed = {}) {
 
   return {
     children,
+    members,
     users,
     cards,
     logs,
     events,
-    async listReminderChildren() {
-      return children.filter((child) => child.reminderEnabled && child.status === 'active');
+    async listReminderTargets() {
+      return members
+        .filter((member) => member.reminderEnabled && member.status === 'active')
+        .flatMap((member) => children
+          .filter((child) => child.familyId === member.familyId && child.status === 'active')
+          .map((child) => ({
+            ...child,
+            recipientOpenid: member.openid,
+            memberId: member._id,
+            reminderEnabled: member.reminderEnabled,
+            reminderTime: member.reminderTime,
+          })));
     },
-    async listActiveCards(childId) {
-      return cards.filter((card) => card.childId === childId && card.status === 'active');
+    async listActiveCards(familyId, childId) {
+      return cards.filter((card) => (
+        (card.familyId || familyId) === familyId
+        && card.childId === childId
+        && card.status === 'active'
+      ));
     },
     async findUserByOpenid(openid) {
       return users.find((user) => user.openid === openid && user.status === 'active') || null;
     },
-    async findReminderLog({ childId, bizDate, templateId }) {
+    async findReminderLog({ familyId, childId, recipientOpenid, bizDate, templateId }) {
       return logs.find((log) => (
-        log.childId === childId
+        log.familyId === familyId
+        && log.childId === childId
+        && log.recipientOpenid === recipientOpenid
         && log.bizDate === bizDate
         && log.templateId === templateId
       )) || null;
     },
-    async listReminderLogsByOwner(ownerOpenid, bizDate) {
+    async listReminderLogsByRecipient(recipientOpenid, bizDate) {
       return logs.filter((log) => (
-        log.ownerOpenid === ownerOpenid && log.bizDate === bizDate
+        log.recipientOpenid === recipientOpenid && log.bizDate === bizDate
       ));
     },
     async createReminderLog(data) {
       const existing = logs.find((log) => (
-        log.childId === data.childId
+        log.familyId === data.familyId
+        && log.childId === data.childId
+        && log.recipientOpenid === data.recipientOpenid
         && log.bizDate === data.bizDate
         && log.templateId === data.templateId
       ));
@@ -185,6 +210,44 @@ test('到认字日和提醒小时发送真实待复习数并成功扣额度', as
   assert.equal(repository.logs[0].attemptCount, 1);
 });
 
+test('同一家庭的两个微信按各自提醒设置和额度接收共享孩子提醒', async () => {
+  const repository = createMemoryRepository({
+    members: [
+      {
+        _id: 'member-owner', familyId: 'family-1', openid: 'openid-1', status: 'active',
+        reminderEnabled: true, reminderTime: '20:00',
+      },
+      {
+        _id: 'member-parent', familyId: 'family-1', openid: 'openid-2', status: 'active',
+        reminderEnabled: true, reminderTime: '20:00',
+      },
+      {
+        _id: 'member-disabled', familyId: 'family-1', openid: 'openid-3', status: 'active',
+        reminderEnabled: false, reminderTime: '20:00',
+      },
+    ],
+    users: [
+      { _id: 'user-1', openid: 'openid-1', subscriptionQuota: 2, status: 'active' },
+      { _id: 'user-2', openid: 'openid-2', subscriptionQuota: 1, status: 'active' },
+      { _id: 'user-3', openid: 'openid-3', subscriptionQuota: 5, status: 'active' },
+    ],
+  });
+  const sender = createSender();
+  const service = createReminderService({ repository, sender, templateId: TEMPLATE_ID });
+
+  const result = await service.run(new Date('2026-07-26T12:05:00.000Z'));
+
+  assert.deepEqual(result, {
+    matched: 2, sent: 2, skipped: 0, failed: 0, alreadySent: 0,
+  });
+  assert.deepEqual(sender.calls.map((item) => item.touser).sort(), ['openid-1', 'openid-2']);
+  assert.equal(repository.users.find((item) => item.openid === 'openid-1').subscriptionQuota, 1);
+  assert.equal(repository.users.find((item) => item.openid === 'openid-2').subscriptionQuota, 0);
+  assert.equal(repository.users.find((item) => item.openid === 'openid-3').subscriptionQuota, 5);
+  assert.equal(repository.logs.length, 2);
+  assert.notEqual(repository.logs[0].recipientOpenid, repository.logs[1].recipientOpenid);
+});
+
 test('发送失败不扣额度并在下一小时补发，成功后当天不再发送', async () => {
   const repository = createMemoryRepository();
   const sender = createSender();
@@ -255,8 +318,8 @@ test('额度为零时补充额度后下一小时发送', async () => {
 test('次日重新建立日志并允许再次发送', async () => {
   const repository = createMemoryRepository({
     children: [{
-      _id: 'child-1', ownerOpenid: 'openid-1', status: 'active', reminderEnabled: true,
-      reminderTime: '20:00', studyDays: [0, 1],
+      _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', status: 'active',
+      studyDays: [0, 1],
     }],
   });
   const sender = createSender();

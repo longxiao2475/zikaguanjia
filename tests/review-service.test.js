@@ -15,30 +15,41 @@ function hasCode(code) {
 
 function createMemoryRepository(seed = {}) {
   const children = [...(seed.children || [
-    { _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' },
+    { _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', status: 'active' },
   ])];
-  const cards = [...(seed.cards || [
+  const members = [...(seed.members || [
+    { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+  ])];
+  const cards = (seed.cards || [
     {
-      _id: 'card-1', ownerOpenid: 'openid-1', childId: 'child-1', content: '大',
+      _id: 'card-1', ownerOpenid: 'openid-1', familyId: 'family-1', childId: 'child-1', content: '大',
       proficiency: 'unfamiliar', reviewCount: 0, status: 'active',
     },
     {
-      _id: 'card-2', ownerOpenid: 'openid-1', childId: 'child-1', content: '人',
+      _id: 'card-2', ownerOpenid: 'openid-1', familyId: 'family-1', childId: 'child-1', content: '人',
       proficiency: 'normal', reviewCount: 2, status: 'active',
     },
-  ])];
+  ]).map((card) => ({
+    familyId: (children.find((child) => child._id === card.childId) || {}).familyId,
+    ...card,
+  }));
   const sessions = [];
+  const assignments = [...(seed.assignments || [])];
 
   return {
     cards,
     children,
     sessions,
+    assignments,
     failAfterUpdates: false,
 
     async completeReview({ openid, childId, items, bizDate }) {
       const nextCards = cards.map((card) => ({ ...card }));
       const child = children.find((item) => item._id === childId);
-      if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
+      const member = child && members.find((item) => (
+        item.familyId === child.familyId && item.openid === openid && item.status === 'active'
+      ));
+      if (!child || !member || child.status !== 'active') {
         throw codedError('CHILD_FORBIDDEN');
       }
 
@@ -46,7 +57,7 @@ function createMemoryRepository(seed = {}) {
         const card = nextCards.find((item) => item._id === result.cardId);
         if (
           !card
-          || card.ownerOpenid !== openid
+          || card.familyId !== child.familyId
           || card.childId !== childId
           || card.status !== 'active'
         ) {
@@ -77,7 +88,8 @@ function createMemoryRepository(seed = {}) {
       };
       const session = {
         _id: `session-${sessions.length + 1}`,
-        ownerOpenid: openid,
+        familyId: child.familyId,
+        reviewedByOpenid: openid,
         childId,
         bizDate,
         status: 'completed',
@@ -85,6 +97,19 @@ function createMemoryRepository(seed = {}) {
         items: sessionItems,
       };
       cards.splice(0, cards.length, ...nextCards);
+      for (const assignment of assignments) {
+        if (
+          assignment.familyId === child.familyId
+          && assignment.childId === childId
+          && items.some((item) => item.cardId === assignment.cardId)
+          && assignment.status === 'pending'
+          && assignment.scheduledDate <= bizDate
+        ) {
+          assignment.status = 'completed';
+          assignment.completedAt = 'SERVER_DATE';
+          assignment.completedByOpenid = openid;
+        }
+      }
       sessions.push(session);
       return {
         session,
@@ -126,6 +151,52 @@ test('complete 创建一次 session 并更新全部字卡', async () => {
   });
   assert.equal(result.cards[0].reviewCount, 1);
   assert.equal(result.cards[1].reviewCount, 3);
+});
+
+test('完成复习会同步完成对应的手动待复习任务', async () => {
+  const repository = createMemoryRepository({
+    assignments: [{
+      _id: 'assignment-1', familyId: 'family-1', childId: 'child-1', cardId: 'card-1',
+      scheduledDate: '2026-07-26', source: 'manual', status: 'pending',
+    }],
+  });
+  const service = createReviewService(repository, {
+    now: () => new Date('2026-07-26T04:00:00.000Z'),
+  });
+
+  await service.complete('openid-1', {
+    childId: 'child-1',
+    items: [{ cardId: 'card-1', proficiency: 'normal' }],
+  });
+
+  assert.equal(repository.assignments[0].status, 'completed');
+  assert.equal(repository.assignments[0].completedByOpenid, 'openid-1');
+});
+
+test('同一家庭成员可以提交共享字卡复习且记录实际操作人', async () => {
+  const repository = createMemoryRepository({
+    children: [{
+      _id: 'child-1', ownerOpenid: 'owner-openid', familyId: 'family-1', status: 'active',
+    }],
+    members: [
+      { familyId: 'family-1', openid: 'owner-openid', status: 'active' },
+      { familyId: 'family-1', openid: 'member-openid', status: 'active' },
+    ],
+    cards: [{
+      _id: 'card-1', familyId: 'family-1', childId: 'child-1', content: '大',
+      proficiency: 'unfamiliar', reviewCount: 0, status: 'active',
+    }],
+  });
+  const service = createReviewService(repository);
+
+  const result = await service.complete('member-openid', {
+    childId: 'child-1',
+    items: [{ cardId: 'card-1', proficiency: 'normal' }],
+  });
+
+  assert.equal(result.session.familyId, 'family-1');
+  assert.equal(result.session.reviewedByOpenid, 'member-openid');
+  assert.equal(result.cards[0].proficiency, 'normal');
 });
 
 test('拒绝空结果、重复 cardId 和非法熟练度', async () => {

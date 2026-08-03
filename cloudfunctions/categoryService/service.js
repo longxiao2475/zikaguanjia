@@ -8,6 +8,7 @@ const DEFAULT_CATEGORY_NAMES = Object.freeze([
   '学习用品',
   '日常用品',
 ]);
+const { assertChildAccess } = require('./family');
 
 const LEGACY_CATEGORY_ALIASES = Object.freeze({
   汽车: '交通工具',
@@ -33,25 +34,17 @@ function normalizeCategoryName(value) {
 function createCategoryService(repository) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
 
-  async function assertChildOwnership(openid, childId) {
-    if (!childId) throw businessError('CHILD_ID_REQUIRED', '请选择孩子');
-    const child = await repository.findChildById(childId);
-    if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
-      throw businessError('CHILD_FORBIDDEN', '无权访问该孩子');
-    }
-    return child;
-  }
-
   async function list(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
-    let allCategories = await repository.listCategories(payload.childId, true);
+    const access = await assertChildAccess(repository, openid, payload.childId);
+    let allCategories = await repository.listCategories(access.familyId, payload.childId, true);
 
     for (let index = 0; index < DEFAULT_CATEGORY_NAMES.length; index += 1) {
       const name = DEFAULT_CATEGORY_NAMES[index];
       const existing = allCategories.find((item) => item.normalizedName === name);
       if (!existing) {
         await repository.createCategory({
-          ownerOpenid: openid,
+          familyId: access.familyId,
+          createdByOpenid: openid,
           childId: payload.childId,
           name,
           normalizedName: name,
@@ -74,7 +67,7 @@ function createCategoryService(repository) {
       }
     }
 
-    allCategories = await repository.listCategories(payload.childId, true);
+    allCategories = await repository.listCategories(access.familyId, payload.childId, true);
     let nextSortOrder = DEFAULT_CATEGORY_NAMES.length;
     for (const category of allCategories) {
       if (DEFAULT_CATEGORY_NAMES.includes(category.normalizedName)) continue;
@@ -83,6 +76,7 @@ function createCategoryService(repository) {
         || DEFAULT_CATEGORY_NAMES.includes(aliasTarget);
       if (shouldRetireWhenUnused) {
         const references = await repository.countActiveCardReferences(
+          access.familyId,
           payload.childId,
           category._id,
         );
@@ -104,14 +98,14 @@ function createCategoryService(repository) {
       nextSortOrder += 1;
     }
 
-    return repository.listCategories(payload.childId, false);
+    return repository.listCategories(access.familyId, payload.childId, false);
   }
 
   async function create(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const name = normalizeCategoryName(payload.name);
-    const duplicate = await repository.findByNormalized(payload.childId, name);
-    const categories = await repository.listCategories(payload.childId, true);
+    const duplicate = await repository.findByNormalized(access.familyId, payload.childId, name);
+    const categories = await repository.listCategories(access.familyId, payload.childId, true);
     const sortOrder = categories.reduce(
       (maximum, item) => Math.max(maximum, Number(item.sortOrder) || 0),
       -1,
@@ -129,7 +123,8 @@ function createCategoryService(repository) {
       throw businessError('CATEGORY_DUPLICATE', '这个分类已经存在');
     }
     return repository.createCategory({
-      ownerOpenid: openid,
+      familyId: access.familyId,
+      createdByOpenid: openid,
       childId: payload.childId,
       name,
       normalizedName: name,
@@ -140,13 +135,23 @@ function createCategoryService(repository) {
   }
 
   async function update(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const category = await repository.findById(payload.categoryId);
-    if (!category || category.childId !== payload.childId || category.status !== 'active') {
+    if (
+      !category
+      || category.familyId !== access.familyId
+      || category.childId !== payload.childId
+      || category.status !== 'active'
+    ) {
       throw businessError('CATEGORY_NOT_FOUND', '分类不存在');
     }
     const name = normalizeCategoryName(payload.name);
-    const duplicate = await repository.findByNormalized(payload.childId, name, category._id);
+    const duplicate = await repository.findByNormalized(
+      access.familyId,
+      payload.childId,
+      name,
+      category._id,
+    );
     if (duplicate) throw businessError('CATEGORY_DUPLICATE', '这个分类已经存在');
     return repository.updateCategory(category._id, { name, normalizedName: name });
   }

@@ -23,6 +23,8 @@ test.beforeEach(() => {
 
 test('读写用户、孩子、字卡、分类和今日计划缓存', () => {
   cache.setUser({ _id: 'u1' });
+  cache.setFamily({ _id: 'f1' });
+  cache.setMember({ _id: 'm1', familyId: 'f1' });
   cache.setChild({ _id: 'c1' });
   cache.setCards([{ _id: 'card1' }]);
   cache.setCategories([{ _id: 'category1', name: '植物' }]);
@@ -30,11 +32,26 @@ test('读写用户、孩子、字卡、分类和今日计划缓存', () => {
   cache.setLastSyncAt(123);
 
   assert.deepEqual(cache.getUser(), { _id: 'u1' });
+  assert.deepEqual(cache.getFamily(), { _id: 'f1' });
+  assert.deepEqual(cache.getMember(), { _id: 'm1', familyId: 'f1' });
   assert.deepEqual(cache.getChild(), { _id: 'c1' });
   assert.deepEqual(cache.getCards(), [{ _id: 'card1' }]);
   assert.deepEqual(cache.getCategories(), [{ _id: 'category1', name: '植物' }]);
   assert.deepEqual(cache.getTodayPlan(), { cards: [{ _id: 'card1' }] });
   assert.equal(cache.getLastSyncAt(), 123);
+});
+
+test('家庭变化后不会读取上一家庭的字卡分类和今日计划', () => {
+  cache.setFamily({ _id: 'family-1' });
+  cache.setCards([{ _id: 'card-1' }]);
+  cache.setCategories([{ _id: 'category-1' }]);
+  cache.setTodayPlan({ cards: [{ _id: 'card-1' }] });
+
+  cache.setFamily({ _id: 'family-2' });
+
+  assert.deepEqual(cache.getCards(), []);
+  assert.deepEqual(cache.getCategories(), []);
+  assert.equal(cache.getTodayPlan(), null);
 });
 
 test('清理业务缓存不会删除其他 Storage', () => {

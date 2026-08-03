@@ -25,9 +25,20 @@ function createReminderRepository(db) {
     return result.data || null;
   }
 
-  async function findReminderLog(query) {
+  async function findExactReminderLog(query) {
     const result = await reminderLogs.where(query).limit(1).get();
     return result.data[0] || null;
+  }
+
+  async function findReminderLog(query) {
+    const log = await findExactReminderLog(query);
+    if (log || !query.recipientOpenid) return log;
+    return findExactReminderLog({
+      ownerOpenid: query.recipientOpenid,
+      childId: query.childId,
+      bizDate: query.bizDate,
+      templateId: query.templateId,
+    });
   }
 
   async function updateReminderLog(logId, data) {
@@ -38,12 +49,26 @@ function createReminderRepository(db) {
   }
 
   return {
-    async listReminderChildren() {
-      return listAll(db.collection('children'), { reminderEnabled: true, status: 'active' });
+    async listReminderTargets() {
+      const [members, children] = await Promise.all([
+        listAll(db.collection('family_members'), { status: 'active' }),
+        listAll(db.collection('children'), { status: 'active' }),
+      ]);
+      return members
+        .filter((member) => member.reminderEnabled !== false)
+        .flatMap((member) => children
+          .filter((child) => child.familyId === member.familyId)
+          .map((child) => ({
+            ...child,
+            recipientOpenid: member.openid,
+            memberId: member._id,
+            reminderEnabled: member.reminderEnabled !== false,
+            reminderTime: member.reminderTime || '20:00',
+          })));
     },
 
-    async listActiveCards(childId) {
-      return listAll(db.collection('cards'), { childId, status: 'active' });
+    async listActiveCards(familyId, childId) {
+      return listAll(db.collection('cards'), { familyId, childId, status: 'active' });
     },
 
     async findUserByOpenid(openid) {
@@ -53,8 +78,12 @@ function createReminderRepository(db) {
 
     findReminderLog,
 
-    async listReminderLogsByOwner(ownerOpenid, bizDate) {
-      return listAll(reminderLogs, { ownerOpenid, bizDate });
+    async listReminderLogsByRecipient(recipientOpenid, bizDate) {
+      const [current, legacy] = await Promise.all([
+        listAll(reminderLogs, { recipientOpenid, bizDate }),
+        listAll(reminderLogs, { ownerOpenid: recipientOpenid, bizDate }),
+      ]);
+      return [...new Map([...current, ...legacy].map((item) => [item._id, item])).values()];
     },
 
     async createReminderLog(data) {
@@ -69,7 +98,9 @@ function createReminderRepository(db) {
         return {
           duplicate: true,
           log: await findReminderLog({
+            familyId: data.familyId,
             childId: data.childId,
+            recipientOpenid: data.recipientOpenid,
             bizDate: data.bizDate,
             templateId: data.templateId,
           }),

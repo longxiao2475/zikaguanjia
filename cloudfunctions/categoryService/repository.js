@@ -12,6 +12,8 @@ function createCategoryRepository(db) {
   const categories = db.collection('categories');
   const children = db.collection('children');
   const cards = db.collection('cards');
+  const users = db.collection('users');
+  const familyMembers = db.collection('family_members');
   let collectionInitialization = null;
 
   async function initializeCategoriesCollection(originalError) {
@@ -55,18 +57,34 @@ function createCategoryRepository(db) {
   }
 
   return {
+    async findFamilyAccess(openid, childId) {
+      if (!openid || !childId) return null;
+      const userResult = await users.where({ openid, status: 'active' }).limit(1).get();
+      const user = userResult.data[0] || null;
+      const childResult = await children.doc(childId).get();
+      const child = childResult.data || null;
+      if (!user || !child || !user.activeFamilyId || child.familyId !== user.activeFamilyId) return null;
+      const memberResult = await familyMembers.where({
+        familyId: user.activeFamilyId,
+        openid,
+        status: 'active',
+      }).limit(1).get();
+      const member = memberResult.data[0] || null;
+      return member ? { user, child, member, familyId: user.activeFamilyId } : null;
+    },
+
     async findChildById(id) {
       if (!id) return null;
       const result = await children.doc(id).get();
       return result.data || null;
     },
 
-    async listCategories(childId, includeInactive = false) {
+    async listCategories(familyId, childId, includeInactive = false) {
       const all = [];
       let offset = 0;
       while (true) {
         const result = await runCategoryOperation(() => categories
-          .where({ childId })
+          .where({ familyId, childId })
           .skip(offset)
           .limit(BATCH_SIZE)
           .get());
@@ -80,9 +98,9 @@ function createCategoryRepository(db) {
           || String(a.name || '').localeCompare(String(b.name || ''), 'zh-CN'));
     },
 
-    async findByNormalized(childId, normalizedName, excludeId) {
+    async findByNormalized(familyId, childId, normalizedName, excludeId) {
       const result = await runCategoryOperation(
-        () => categories.where({ childId, normalizedName }).limit(2).get(),
+        () => categories.where({ familyId, childId, normalizedName }).limit(2).get(),
       );
       return result.data.find((item) => item._id !== excludeId) || null;
     },
@@ -106,12 +124,12 @@ function createCategoryRepository(db) {
       return readCategory(id);
     },
 
-    async countActiveCardReferences(childId, categoryId) {
+    async countActiveCardReferences(familyId, childId, categoryId) {
       let count = 0;
       let offset = 0;
       while (true) {
         const result = await cards
-          .where({ childId, status: 'active' })
+          .where({ familyId, childId, status: 'active' })
           .skip(offset)
           .limit(BATCH_SIZE)
           .get();

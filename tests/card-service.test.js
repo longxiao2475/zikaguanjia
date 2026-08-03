@@ -7,18 +7,42 @@ const {
 } = require('../cloudfunctions/cardService/service');
 
 function createMemoryRepository(seed = {}) {
-  const children = [...(seed.children || [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }])];
-  const cards = [...(seed.cards || [])];
-  const categories = [...(seed.categories || [])];
+  const children = [...(seed.children || [{
+    _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', status: 'active',
+  }])];
+  const members = [...(seed.members || [{
+    _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active',
+  }])];
+  const getChildFamily = (childId) => (
+    children.find((child) => child._id === childId) || {}
+  ).familyId;
+  const cards = (seed.cards || []).map((card) => ({
+    familyId: getChildFamily(card.childId),
+    ...card,
+  }));
+  const categories = (seed.categories || []).map((category) => ({
+    familyId: getChildFamily(category.childId),
+    ...category,
+  }));
+  const assignments = [...(seed.assignments || [])];
 
   return {
     cards,
+    assignments,
+    async findFamilyAccess(openid, childId) {
+      const child = children.find((item) => item._id === childId) || null;
+      const member = child && members.find((item) => (
+        item.familyId === child.familyId && item.openid === openid && item.status === 'active'
+      ));
+      return child && member ? { child, member, familyId: child.familyId } : null;
+    },
     async findChildById(id) {
       return children.find((item) => item._id === id) || null;
     },
-    async findActiveByNormalized(childId, normalizedContent, excludeId) {
+    async findActiveByNormalized(familyId, childId, normalizedContent, excludeId) {
       return cards.find((item) => (
-        item.childId === childId
+        item.familyId === familyId
+        && item.childId === childId
         && item.normalizedContent === normalizedContent
         && item.status === 'active'
         && item._id !== excludeId
@@ -29,8 +53,10 @@ function createMemoryRepository(seed = {}) {
       cards.push(card);
       return card;
     },
-    async listActiveCards(childId) {
-      return cards.filter((item) => item.childId === childId && item.status === 'active');
+    async listActiveCards(familyId, childId) {
+      return cards.filter((item) => (
+        item.familyId === familyId && item.childId === childId && item.status === 'active'
+      ));
     },
     async findCardById(id) {
       return cards.find((item) => item._id === id) || null;
@@ -43,12 +69,98 @@ function createMemoryRepository(seed = {}) {
     async findCategoriesByIds(ids) {
       return ids.map((id) => categories.find((item) => item._id === id) || null).filter(Boolean);
     },
+    async addReviewAssignments(data) {
+      let addedCount = 0;
+      let existingCount = 0;
+      for (const cardId of data.cardIds) {
+        const existing = assignments.find((item) => (
+          item.familyId === data.familyId
+          && item.childId === data.childId
+          && item.cardId === cardId
+          && item.scheduledDate === data.scheduledDate
+          && item.status === 'pending'
+        ));
+        if (existing) {
+          existingCount += 1;
+          continue;
+        }
+        assignments.push({
+          _id: `assignment-${assignments.length + 1}`,
+          ...data,
+          cardIds: undefined,
+          cardId,
+          source: 'manual',
+          status: 'pending',
+        });
+        addedCount += 1;
+      }
+      return { addedCount, existingCount };
+    },
+    async listPendingReviewAssignments(familyId, childId, scheduledDate) {
+      return assignments.filter((item) => (
+        item.familyId === familyId
+        && item.childId === childId
+        && item.status === 'pending'
+        && item.scheduledDate <= scheduledDate
+      ));
+    },
   };
 }
 
 test('标准化内容会执行 NFKC、trim 并移除空白', () => {
   assert.equal(normalizeContent('  大 小  '), '大小');
   assert.equal(normalizeContent('Ａ'), 'A');
+});
+
+test('不同家庭可以拥有同名字卡且复习状态彼此独立', async () => {
+  const repository = createMemoryRepository({
+    children: [
+      { _id: 'child-1', familyId: 'family-1', status: 'active' },
+      { _id: 'child-2', familyId: 'family-2', status: 'active' },
+    ],
+    members: [
+      { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+      { familyId: 'family-2', openid: 'openid-2', status: 'active' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const familyOne = await service.create('openid-1', {
+    childId: 'child-1', content: '苹果', source: 'new',
+  });
+  const familyTwo = await service.create('openid-2', {
+    childId: 'child-2', content: '苹果', source: 'reviewed',
+  });
+
+  assert.notEqual(familyOne._id, familyTwo._id);
+  assert.equal(familyOne.familyId, 'family-1');
+  assert.equal(familyTwo.familyId, 'family-2');
+  assert.equal(familyOne.proficiency, 'unfamiliar');
+  assert.equal(familyTwo.proficiency, 'normal');
+});
+
+test('家庭成员不能按 id 读取另一个家庭的字卡', async () => {
+  const repository = createMemoryRepository({
+    children: [
+      { _id: 'child-1', familyId: 'family-1', status: 'active' },
+      { _id: 'child-2', familyId: 'family-2', status: 'active' },
+    ],
+    members: [
+      { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+      { familyId: 'family-2', openid: 'openid-2', status: 'active' },
+    ],
+    cards: [
+      { _id: 'family-1-card', familyId: 'family-1', childId: 'child-1', status: 'active' },
+      { _id: 'family-2-card', familyId: 'family-2', childId: 'child-2', status: 'active' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const cards = await service.getByIds('openid-2', {
+    childId: 'child-2', cardIds: ['family-1-card', 'family-2-card'],
+  });
+
+  assert.deepEqual(cards.map((card) => card._id), ['family-2-card']);
 });
 
 test('新学字卡默认不熟，已学过字卡默认一般', async () => {
@@ -134,6 +246,59 @@ test('今日计划按调度规则返回统计和总览', async () => {
   assert.deepEqual(result.cards.map((card) => card._id), ['u1', 'n1']);
   assert.deepEqual(result.stats, { total: 2, unfamiliar: 1, normal: 1, proficient: 0 });
   assert.deepEqual(result.overview, { total: 3, mastered: 1, due: 2 });
+});
+
+test('选择字卡会加入家庭孩子维度的今日任务且重复添加保持幂等', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'recent', childId: 'child-1', status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-25T03:00:00.000Z' },
+      { _id: 'other-family', familyId: 'family-2', childId: 'child-2', status: 'active', proficiency: 'normal' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const first = await service.addReviewAssignments('openid-1', {
+    childId: 'child-1', cardIds: ['recent'],
+  });
+  const second = await service.addReviewAssignments('openid-1', {
+    childId: 'child-1', cardIds: ['recent'],
+  });
+
+  assert.deepEqual(first, { addedCount: 1, existingCount: 0, scheduledDate: '2026-07-25' });
+  assert.deepEqual(second, { addedCount: 0, existingCount: 1, scheduledDate: '2026-07-25' });
+  assert.equal(repository.assignments[0].familyId, 'family-1');
+  assert.equal(repository.assignments[0].addedByOpenid, 'openid-1');
+  await assert.rejects(
+    () => service.addReviewAssignments('openid-1', {
+      childId: 'child-1', cardIds: ['other-family'],
+    }),
+    (error) => error.code === 'CARD_NOT_FOUND',
+  );
+});
+
+test('今日计划合并自动到期和手动任务并按字卡 id 去重', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'automatic', childId: 'child-1', status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+      { _id: 'manual-only', childId: 'child-1', status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-25T03:00:00.000Z' },
+    ],
+    assignments: [
+      { _id: 'a1', familyId: 'family-1', childId: 'child-1', cardId: 'automatic', scheduledDate: '2026-07-25', status: 'pending' },
+      { _id: 'a2', familyId: 'family-1', childId: 'child-1', cardId: 'manual-only', scheduledDate: '2026-07-25', status: 'pending' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const result = await service.getTodayPlan('openid-1', { childId: 'child-1' });
+
+  assert.deepEqual(result.cards.map((card) => card._id), ['automatic', 'manual-only']);
+  assert.equal(result.cards[0].reviewSource, 'automatic');
+  assert.equal(result.cards[1].reviewSource, 'manual');
+  assert.equal(result.overview.due, 2);
 });
 
 test('已学过但从未复习的字卡进入今日计划', async () => {
