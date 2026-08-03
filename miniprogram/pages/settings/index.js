@@ -42,11 +42,11 @@ Page({
     this.loadSettings();
   },
 
-  applySession(user, child) {
+  applySession(user, child, member = {}) {
     const studyDays = Array.isArray(child.studyDays) && child.studyDays.length
       ? child.studyDays
       : [2, 4, 6];
-    const reminderTime = normalizeReminderTime(child.reminderTime);
+    const reminderTime = normalizeReminderTime(member.reminderTime || child.reminderTime);
     this.setData({
       childId: child._id,
       childName: child.name || '',
@@ -57,7 +57,9 @@ Page({
       })),
       reminderHourIndex: HOUR_OPTIONS.indexOf(reminderTime),
       reminderTime,
-      reminderEnabled: child.reminderEnabled !== false,
+      reminderEnabled: member.reminderEnabled !== undefined
+        ? member.reminderEnabled !== false
+        : child.reminderEnabled !== false,
       subscriptionQuota: Number(user.subscriptionQuota || 0),
     });
   },
@@ -65,9 +67,13 @@ Page({
   async loadSettings() {
     this.setData({ errorMessage: '' });
     try {
-      let { user, child } = session.getCachedSession();
-      if (!user || !child) ({ user, child } = await session.bootstrap());
-      this.applySession(user, child);
+      let {
+        user,
+        child,
+        member,
+      } = session.getCachedSession();
+      if (!user || !child || !member) ({ user, child, member } = await session.bootstrap());
+      this.applySession(user, child, member);
     } catch (error) {
       this.setData({ errorMessage: error.message || '设置加载失败' });
     } finally {

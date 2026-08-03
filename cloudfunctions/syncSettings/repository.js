@@ -154,6 +154,13 @@ function createSyncSettingsRepository(db) {
       return readById(familyMembers, result._id);
     },
 
+    async updateMember(id, updates) {
+      await familyMembers.doc(id).update({
+        data: { ...updates, updatedAt: db.serverDate() },
+      });
+      return readById(familyMembers, id);
+    },
+
     async findChildById(id) {
       return readById(children, id);
     },

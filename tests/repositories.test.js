@@ -105,6 +105,9 @@ test('syncSettings 仓储原地补齐家庭归属且不改变现有记录 id', a
   const member = await repository.createMember({
     familyId: family._id, openid: 'openid-1', role: 'owner', status: 'active',
   });
+  const updatedMember = await repository.updateMember(member._id, {
+    reminderTime: '19:00', reminderEnabled: false,
+  });
   await repository.backfillChildrenFamily('openid-1', family._id);
   await repository.backfillCardsFamily(['child-1'], family._id);
   await repository.backfillCategoriesFamily(['child-1'], family._id);
@@ -112,6 +115,9 @@ test('syncSettings 仓储原地补齐家庭归属且不改变现有记录 id', a
   await repository.backfillReminderLogsFamily(['child-1'], family._id);
 
   assert.equal(member.createdAt, 'SERVER_DATE');
+  assert.equal(updatedMember.reminderTime, '19:00');
+  assert.equal(updatedMember.reminderEnabled, false);
+  assert.equal(updatedMember.updatedAt, 'SERVER_DATE');
   assert.equal(db.tables.children[0]._id, 'child-1');
   assert.equal(db.tables.children[0].familyId, family._id);
   assert.equal(db.tables.cards[0]._id, 'card-1');

@@ -47,13 +47,15 @@ test('设置页提供 24 个整点并把旧分钟设置归一到同一小时', (
       _id: 'child-1', name: '果果', studyDays: [4], reminderTime: '13:35',
       reminderEnabled: true,
     },
+    { reminderTime: '07:35', reminderEnabled: false },
   );
 
   assert.equal(context.data.hourOptions.length, 24);
   assert.equal(context.data.hourOptions[0], '00:00');
   assert.equal(context.data.hourOptions[23], '23:00');
-  assert.equal(context.data.reminderHourIndex, 13);
-  assert.equal(context.data.reminderTime, '13:00');
+  assert.equal(context.data.reminderHourIndex, 7);
+  assert.equal(context.data.reminderTime, '07:00');
+  assert.equal(context.data.reminderEnabled, false);
 });
 
 test('设置页选择小时后只产生整点提醒值', () => {

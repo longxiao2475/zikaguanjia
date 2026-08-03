@@ -132,8 +132,17 @@ function createSyncSettingsService(repository) {
     if (!openid || typeof openid !== 'string') throw businessError('OPENID_REQUIRED', '登录状态已失效');
     const childId = typeof payload.childId === 'string' ? payload.childId.trim() : '';
     if (!childId) throw businessError('CHILD_ID_REQUIRED', '请选择孩子');
+    const user = await repository.findUserByOpenid(openid);
     const child = await repository.findChildById(childId);
-    if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
+    const member = user && await repository.findActiveMember(user.activeFamilyId, openid);
+    if (
+      !user
+      || user.status !== 'active'
+      || !member
+      || !child
+      || child.familyId !== user.activeFamilyId
+      || child.status !== 'active'
+    ) {
       throw businessError('CHILD_FORBIDDEN', '无权修改该孩子设置');
     }
     const reminderTime = typeof payload.reminderTime === 'string' ? payload.reminderTime.trim() : '';
@@ -143,13 +152,16 @@ function createSyncSettingsService(repository) {
     if (typeof payload.reminderEnabled !== 'boolean') {
       throw businessError('REMINDER_ENABLED_INVALID', '提醒开关设置无效');
     }
-    return repository.updateChild(childId, {
+    const updatedChild = await repository.updateChild(childId, {
       name: normalizeName(payload.name),
       studyDays: normalizeStudyDays(payload.studyDays),
-      reminderTime,
-      reminderEnabled: payload.reminderEnabled,
       timezone: 'Asia/Shanghai',
     });
+    const updatedMember = await repository.updateMember(member._id, {
+      reminderTime,
+      reminderEnabled: payload.reminderEnabled,
+    });
+    return { child: updatedChild, member: updatedMember };
   }
 
   return { bootstrap, saveSettings };

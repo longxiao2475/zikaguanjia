@@ -6,6 +6,8 @@ const REVIEW_QUEUE_MODES = new Set(['append', 'replace']);
 
 const KEYS = Object.freeze({
   user: 'zkg:user',
+  family: 'zkg:family',
+  member: 'zkg:member',
   child: 'zkg:child',
   cards: 'zkg:cards',
   categories: 'zkg:categories',
@@ -29,6 +31,40 @@ function clearBusinessCache() {
   Object.values(KEYS).forEach((key) => wx.removeStorageSync(key));
 }
 
+const FAMILY_BUSINESS_KEYS = Object.freeze([
+  KEYS.child,
+  KEYS.cards,
+  KEYS.categories,
+  KEYS.todayPlan,
+  KEYS.lastSyncAt,
+  KEYS.libraryFilterIntent,
+  KEYS.manualReviewQueue,
+]);
+
+function getActiveFamilyId() {
+  const family = read(KEYS.family, null);
+  return family && family._id ? family._id : '';
+}
+
+function readFamilyValue(key, fallback) {
+  const stored = read(key, fallback);
+  if (!stored || typeof stored !== 'object' || stored.__familyScoped !== true) return stored;
+  return stored.familyId && stored.familyId === getActiveFamilyId()
+    ? stored.value
+    : fallback;
+}
+
+function writeFamilyValue(key, value) {
+  const familyId = getActiveFamilyId();
+  return familyId
+    ? write(key, { __familyScoped: true, familyId, value }) && value
+    : write(key, value);
+}
+
+function clearFamilyBusinessData() {
+  FAMILY_BUSINESS_KEYS.forEach((key) => wx.removeStorageSync(key));
+}
+
 function normalizeReviewQueueMode(mode) {
   return REVIEW_QUEUE_MODES.has(mode) ? mode : 'append';
 }
@@ -37,14 +73,18 @@ module.exports = {
   KEYS,
   getUser: () => read(KEYS.user, null),
   setUser: (value) => write(KEYS.user, value),
-  getChild: () => read(KEYS.child, null),
-  setChild: (value) => write(KEYS.child, value),
-  getCards: () => read(KEYS.cards, []),
-  setCards: (value) => write(KEYS.cards, Array.isArray(value) ? value : []),
-  getCategories: () => read(KEYS.categories, []),
-  setCategories: (value) => write(KEYS.categories, Array.isArray(value) ? value : []),
-  getTodayPlan: () => read(KEYS.todayPlan, null),
-  setTodayPlan: (value) => write(KEYS.todayPlan, value),
+  getFamily: () => read(KEYS.family, null),
+  setFamily: (value) => write(KEYS.family, value),
+  getMember: () => read(KEYS.member, null),
+  setMember: (value) => write(KEYS.member, value),
+  getChild: () => readFamilyValue(KEYS.child, null),
+  setChild: (value) => writeFamilyValue(KEYS.child, value),
+  getCards: () => readFamilyValue(KEYS.cards, []),
+  setCards: (value) => writeFamilyValue(KEYS.cards, Array.isArray(value) ? value : []),
+  getCategories: () => readFamilyValue(KEYS.categories, []),
+  setCategories: (value) => writeFamilyValue(KEYS.categories, Array.isArray(value) ? value : []),
+  getTodayPlan: () => readFamilyValue(KEYS.todayPlan, null),
+  setTodayPlan: (value) => writeFamilyValue(KEYS.todayPlan, value),
   getLastSyncAt: () => read(KEYS.lastSyncAt, null),
   setLastSyncAt: (value) => write(KEYS.lastSyncAt, value),
   setLibraryFilterIntent(filter) {
@@ -88,5 +128,6 @@ module.exports = {
   clearManualReviewQueue() {
     wx.removeStorageSync(KEYS.manualReviewQueue);
   },
+  clearFamilyBusinessData,
   clearBusinessCache,
 };

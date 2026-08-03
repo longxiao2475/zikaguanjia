@@ -72,6 +72,11 @@ function createMemoryRepository(seed = {}) {
       members.push(member);
       return member;
     },
+    async updateMember(id, updates) {
+      const member = members.find((item) => item._id === id);
+      Object.assign(member, updates);
+      return member;
+    },
     async listActiveChildrenByOwner(openid) {
       return children.filter((item) => item.ownerOpenid === openid && item.status === 'active');
     },
@@ -197,12 +202,20 @@ test('拒绝空 openid', async () => {
 
 test('saveSettings 标准化昵称、认字日和提醒设置', async () => {
   const repository = createMemoryRepository({
-    users: [{ _id: 'u1', openid: 'openid-1', defaultChildId: 'c1', subscriptionQuota: 2, status: 'active' }],
-    children: [{ _id: 'c1', ownerOpenid: 'openid-1', name: '', status: 'active' }],
+    users: [{
+      _id: 'u1', openid: 'openid-1', activeFamilyId: 'f1', defaultChildId: 'c1',
+      subscriptionQuota: 2, status: 'active',
+    }],
+    families: [{ _id: 'f1', createdByOpenid: 'openid-1', status: 'active' }],
+    members: [{
+      _id: 'm1', familyId: 'f1', openid: 'openid-1', role: 'owner', status: 'active',
+      reminderTime: '20:00', reminderEnabled: true,
+    }],
+    children: [{ _id: 'c1', familyId: 'f1', ownerOpenid: 'openid-1', name: '', status: 'active' }],
   });
   const service = createSyncSettingsService(repository);
 
-  const child = await service.saveSettings('openid-1', {
+  const result = await service.saveSettings('openid-1', {
     childId: 'c1',
     name: ' 果果 ',
     studyDays: [6, 2, 2],
@@ -210,15 +223,19 @@ test('saveSettings 标准化昵称、认字日和提醒设置', async () => {
     reminderEnabled: false,
   });
 
-  assert.equal(child.name, '果果');
-  assert.deepEqual(child.studyDays, [2, 6]);
-  assert.equal(child.reminderTime, '19:00');
-  assert.equal(child.reminderEnabled, false);
+  assert.equal(result.child.name, '果果');
+  assert.deepEqual(result.child.studyDays, [2, 6]);
+  assert.equal(result.member.reminderTime, '19:00');
+  assert.equal(result.member.reminderEnabled, false);
+  assert.equal(result.child.reminderTime, undefined);
 });
 
 test('saveSettings 拒绝空认字日、非法时间、过长昵称和越权孩子', async () => {
   const repository = createMemoryRepository({
-    children: [{ _id: 'c1', ownerOpenid: 'openid-1', status: 'active' }],
+    users: [{ _id: 'u1', openid: 'openid-1', activeFamilyId: 'f1', status: 'active' }],
+    families: [{ _id: 'f1', createdByOpenid: 'openid-1', status: 'active' }],
+    members: [{ _id: 'm1', familyId: 'f1', openid: 'openid-1', status: 'active' }],
+    children: [{ _id: 'c1', familyId: 'f1', ownerOpenid: 'openid-1', status: 'active' }],
   });
   const service = createSyncSettingsService(repository);
   const valid = {

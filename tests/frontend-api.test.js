@@ -50,7 +50,12 @@ test('bootstrap 缓存用户、孩子和同步时间', async () => {
   global.__cloudResponse = {
     result: {
       ok: true,
-      data: { user: { _id: 'u1' }, child: { _id: 'c1' } },
+      data: {
+        user: { _id: 'u1', activeFamilyId: 'f1' },
+        family: { _id: 'f1' },
+        member: { _id: 'm1', familyId: 'f1' },
+        child: { _id: 'c1', familyId: 'f1' },
+      },
     },
   };
 
@@ -58,10 +63,37 @@ test('bootstrap 缓存用户、孩子和同步时间', async () => {
 
   assert.equal(calls[0].name, 'syncSettings');
   assert.deepEqual(calls[0].data, { action: 'bootstrap' });
-  assert.deepEqual(cache.getUser(), { _id: 'u1' });
-  assert.deepEqual(cache.getChild(), { _id: 'c1' });
+  assert.deepEqual(cache.getUser(), { _id: 'u1', activeFamilyId: 'f1' });
+  assert.deepEqual(cache.getFamily(), { _id: 'f1' });
+  assert.deepEqual(cache.getMember(), { _id: 'm1', familyId: 'f1' });
+  assert.deepEqual(cache.getChild(), { _id: 'c1', familyId: 'f1' });
   assert.equal(typeof cache.getLastSyncAt(), 'number');
-  assert.deepEqual(result.child, { _id: 'c1' });
+  assert.deepEqual(result.child, { _id: 'c1', familyId: 'f1' });
+});
+
+test('bootstrap 切换家庭时清理上一家庭业务缓存', async () => {
+  cache.setFamily({ _id: 'family-1' });
+  cache.setCards([{ _id: 'old-card' }]);
+  cache.setCategories([{ _id: 'old-category' }]);
+  cache.setTodayPlan({ cards: [{ _id: 'old-card' }] });
+  global.__cloudResponse = {
+    result: {
+      ok: true,
+      data: {
+        user: { _id: 'u1', activeFamilyId: 'family-2' },
+        family: { _id: 'family-2' },
+        member: { _id: 'member-2', familyId: 'family-2' },
+        child: { _id: 'child-2', familyId: 'family-2' },
+      },
+    },
+  };
+
+  await session.bootstrap();
+
+  assert.deepEqual(cache.getCards(), []);
+  assert.deepEqual(cache.getCategories(), []);
+  assert.equal(cache.getTodayPlan(), null);
+  assert.equal(cache.getFamily()._id, 'family-2');
 });
 
 test('创建字卡后追加本地缓存，获取今日计划后覆盖计划缓存', async () => {
@@ -177,20 +209,26 @@ test('完成复习后合并返回字卡并废弃今日计划缓存', async () =>
   assert.equal(result.session._id, 's1');
 });
 
-test('保存孩子设置后只用云端返回值更新缓存', async () => {
+test('保存共享孩子设置和个人提醒后分别更新缓存', async () => {
   cache.setChild({ _id: 'c1', reminderTime: '20:00' });
   global.__cloudResponse = {
     result: {
       ok: true,
-      data: { _id: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false },
+      data: {
+        child: { _id: 'c1', familyId: 'f1', name: '果果', studyDays: [2, 6] },
+        member: {
+          _id: 'm1', familyId: 'f1', reminderTime: '19:00', reminderEnabled: false,
+        },
+      },
     },
   };
 
-  const child = await session.saveSettings({
-    childId: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:30', reminderEnabled: false,
+  const result = await session.saveSettings({
+    childId: 'c1', name: '果果', studyDays: [2, 6], reminderTime: '19:00', reminderEnabled: false,
   });
 
   assert.equal(calls[0].name, 'syncSettings');
   assert.equal(calls[0].data.action, 'saveSettings');
-  assert.deepEqual(cache.getChild(), child);
+  assert.deepEqual(cache.getChild(), result.child);
+  assert.deepEqual(cache.getMember(), result.member);
 });
