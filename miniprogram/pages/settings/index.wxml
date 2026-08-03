@@ -64,6 +64,44 @@
     <view class="quota-card__value">{{subscriptionQuota}}</view>
   </view>
 
+  <view class="family-card surface-card">
+    <view class="family-card__heading">
+      <view>
+        <view class="settings-block__label">家庭共享</view>
+        <view class="settings-block__helper">{{familyName}} · {{familyMemberCount}} 位成员</view>
+      </view>
+      <view class="family-card__role">{{memberRole === 'owner' ? '创建人' : '成员'}}</view>
+    </view>
+
+    <view wx:if="{{memberRole === 'owner'}}" class="family-invite">
+      <button class="secondary-button family-action" bindtap="onGenerateFamilyCode" loading="{{familyGenerating}}">
+        {{familyInviteCode ? '重新生成家庭码' : '生成家庭码'}}
+      </button>
+      <view wx:if="{{familyInviteCode}}" class="family-code-row">
+        <view class="family-code">{{familyInviteCode}}</view>
+        <button class="text-button" bindtap="onCopyFamilyCode">复制</button>
+      </view>
+      <view class="settings-block__helper">家庭码单次有效，24 小时后过期</view>
+    </view>
+
+    <view class="family-join">
+      <view class="settings-block__label">加入其他家庭</view>
+      <input
+        class="settings-input family-code-input"
+        maxlength="12"
+        placeholder="输入 8 位家庭码"
+        value="{{familyCodeInput}}"
+        bindinput="onFamilyCodeInput"
+      />
+      <button
+        class="secondary-button family-action"
+        bindtap="onPreviewFamilyJoin"
+        loading="{{familyPreviewing}}"
+        disabled="{{familyJoining}}"
+      >检查家庭码</button>
+    </view>
+  </view>
+
   <button class="secondary-button quota-grant" bindtap="onRequestGrant" loading="{{subscribing}}">
     补充提醒次数
   </button>
@@ -71,5 +109,22 @@
   <button class="primary-button settings-save" bindtap="onSave" loading="{{saving}}" disabled="{{loading || saving}}">
     {{saving ? '保存中' : '保存设置'}}
   </button>
+
+  <view wx:if="{{showJoinPreview}}" class="family-preview-mask" bindtap="onCloseJoinPreview">
+    <view class="family-preview surface-card" catchtap="swallow">
+      <view class="family-preview__title">加入“{{joinPreview.familyName}}”</view>
+      <view class="family-preview__text">目标家庭现有 {{joinPreview.targetCardCount}} 张字卡，你有 {{joinPreview.sourceCardCount}} 张。</view>
+      <view class="family-preview__stats">
+        <view>重复 {{joinPreview.duplicateCardCount}} 张</view>
+        <view>迁入 {{joinPreview.uniqueCardCount}} 张</view>
+        <view>分类冲突 {{joinPreview.categoryConflictCount}} 个</view>
+      </view>
+      <view class="family-preview__hint">重复字卡保留目标家庭进度，你的独有字卡和复习历史会迁入。</view>
+      <view class="family-preview__actions">
+        <button class="secondary-button" bindtap="onCloseJoinPreview" disabled="{{familyJoining}}">取消</button>
+        <button class="primary-button" bindtap="onConfirmFamilyJoin" loading="{{familyJoining}}">确认合并并加入</button>
+      </view>
+    </view>
+  </view>
 
 </view>
