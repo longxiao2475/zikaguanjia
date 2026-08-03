@@ -4,6 +4,7 @@ const {
   matchesReviewAge,
   sortCards,
 } = require('./review');
+const { assertChildAccess } = require('./family');
 
 const VALID_PROFICIENCIES = new Set(['unfamiliar', 'normal', 'proficient']);
 const VALID_SOURCES = new Set(['new', 'reviewed']);
@@ -35,15 +36,6 @@ function createCardService(repository, options = {}) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
   const now = options.now || (() => new Date());
 
-  async function assertChildOwnership(openid, childId) {
-    if (!childId) throw businessError('CHILD_ID_REQUIRED', '请选择孩子');
-    const child = await repository.findChildById(childId);
-    if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
-      throw businessError('CHILD_FORBIDDEN', '无权访问该孩子');
-    }
-    return child;
-  }
-
   function validateContent(content) {
     const normalizedContent = normalizeContent(content);
     const length = Array.from(normalizedContent).length;
@@ -52,12 +44,16 @@ function createCardService(repository, options = {}) {
     return normalizedContent;
   }
 
-  async function validateCategoryIds(childId, value) {
+  async function validateCategoryIds(familyId, childId, value) {
     const categoryIds = normalizeCategoryIds(value);
     if (!categoryIds.length) return [];
     const categories = await repository.findCategoriesByIds(categoryIds);
     const validIds = new Set(categories
-      .filter((category) => category.childId === childId && category.status === 'active')
+      .filter((category) => (
+        category.familyId === familyId
+        && category.childId === childId
+        && category.status === 'active'
+      ))
       .map((category) => category._id));
     if (categoryIds.some((id) => !validIds.has(id))) {
       throw businessError('CATEGORY_INVALID', '所选分类已失效，请重新选择');
@@ -66,15 +62,20 @@ function createCardService(repository, options = {}) {
   }
 
   async function create(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const normalizedContent = validateContent(payload.content);
-    const categoryIds = await validateCategoryIds(payload.childId, payload.categoryIds);
+    const categoryIds = await validateCategoryIds(access.familyId, payload.childId, payload.categoryIds);
     const source = VALID_SOURCES.has(payload.source) ? payload.source : 'new';
-    const duplicate = await repository.findActiveByNormalized(payload.childId, normalizedContent);
+    const duplicate = await repository.findActiveByNormalized(
+      access.familyId,
+      payload.childId,
+      normalizedContent,
+    );
     if (duplicate) throw businessError('CARD_DUPLICATE', '这个字卡已经存在');
 
     return repository.createCard({
-      ownerOpenid: openid,
+      familyId: access.familyId,
+      createdByOpenid: openid,
       childId: payload.childId,
       content: normalizedContent,
       normalizedContent,
@@ -92,8 +93,8 @@ function createCardService(repository, options = {}) {
   }
 
   async function list(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
-    const allCards = sortCards(await repository.listActiveCards(payload.childId));
+    const access = await assertChildAccess(repository, openid, payload.childId);
+    const allCards = sortCards(await repository.listActiveCards(access.familyId, payload.childId));
     const categoryIds = normalizeCategoryIds(payload.categoryIds, 50);
     const includeUncategorized = payload.includeUncategorized === true;
     const hasCategoryFilter = categoryIds.length > 0 || includeUncategorized;
@@ -144,7 +145,7 @@ function createCardService(repository, options = {}) {
   }
 
   async function getByIds(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const rawIds = Array.isArray(payload.cardIds) ? payload.cardIds : [];
     if (rawIds.length > 50) {
       throw businessError('CARD_IDS_TOO_MANY', '一次最多选择 50 张字卡');
@@ -156,14 +157,14 @@ function createCardService(repository, options = {}) {
     return cards.filter((card) => (
       card
       && card.childId === payload.childId
-      && card.ownerOpenid === openid
+      && card.familyId === access.familyId
       && card.status === 'active'
     ));
   }
 
   async function getTodayPlan(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
-    const allCards = sortCards(await repository.listActiveCards(payload.childId));
+    const access = await assertChildAccess(repository, openid, payload.childId);
+    const allCards = sortCards(await repository.listActiveCards(access.familyId, payload.childId));
     const cards = getTodayReviewCards(allCards, now());
     return {
       cards,
@@ -178,16 +179,21 @@ function createCardService(repository, options = {}) {
   }
 
   async function update(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const card = await repository.findCardById(payload.cardId);
-    if (!card || card.childId !== payload.childId || card.status !== 'active') {
+    if (!card || card.familyId !== access.familyId || card.childId !== payload.childId || card.status !== 'active') {
       throw businessError('CARD_NOT_FOUND', '字卡不存在');
     }
 
     const updates = {};
     if (payload.content !== undefined) {
       const normalizedContent = validateContent(payload.content);
-      const duplicate = await repository.findActiveByNormalized(payload.childId, normalizedContent, card._id);
+      const duplicate = await repository.findActiveByNormalized(
+        access.familyId,
+        payload.childId,
+        normalizedContent,
+        card._id,
+      );
       if (duplicate) throw businessError('CARD_DUPLICATE', '这个字卡已经存在');
       updates.content = normalizedContent;
       updates.normalizedContent = normalizedContent;
@@ -205,15 +211,19 @@ function createCardService(repository, options = {}) {
     }
     if (payload.customWords !== undefined) updates.customWords = normalizeCustomWords(payload.customWords);
     if (payload.categoryIds !== undefined) {
-      updates.categoryIds = await validateCategoryIds(payload.childId, payload.categoryIds);
+      updates.categoryIds = await validateCategoryIds(
+        access.familyId,
+        payload.childId,
+        payload.categoryIds,
+      );
     }
     return repository.updateCard(card._id, updates);
   }
 
   async function remove(openid, payload = {}) {
-    await assertChildOwnership(openid, payload.childId);
+    const access = await assertChildAccess(repository, openid, payload.childId);
     const card = await repository.findCardById(payload.cardId);
-    if (!card || card.childId !== payload.childId || card.status !== 'active') {
+    if (!card || card.familyId !== access.familyId || card.childId !== payload.childId || card.status !== 'active') {
       throw businessError('CARD_NOT_FOUND', '字卡不存在');
     }
     return repository.updateCard(card._id, {

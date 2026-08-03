@@ -3,6 +3,7 @@ function businessError(code, message) {
   error.code = code;
   return error;
 }
+const { assertTransactionFamilyAccess } = require('./family');
 
 function createSummary(items) {
   return {
@@ -25,11 +26,7 @@ function createReviewRepository(db) {
   return {
     async completeReview({ openid, childId, items, bizDate }) {
       const transactionResult = await db.runTransaction(async (transaction) => {
-        const childResult = await transaction.collection('children').doc(childId).get();
-        const child = childResult.data || null;
-        if (!child || child.ownerOpenid !== openid || child.status !== 'active') {
-          throw businessError('CHILD_FORBIDDEN', '无权访问该孩子');
-        }
+        const access = await assertTransactionFamilyAccess(transaction, openid, childId);
 
         const reviewedAt = db.serverDate();
         const snapshots = [];
@@ -38,7 +35,7 @@ function createReviewRepository(db) {
           const card = cardResult.data || null;
           if (
             !card
-            || card.ownerOpenid !== openid
+            || card.familyId !== access.familyId
             || card.childId !== childId
             || card.status !== 'active'
           ) {
@@ -56,7 +53,8 @@ function createReviewRepository(db) {
         }));
         const sessionResult = await transaction.collection('review_sessions').add({
           data: {
-            ownerOpenid: openid,
+            familyId: access.familyId,
+            reviewedByOpenid: openid,
             childId,
             bizDate,
             status: 'completed',
@@ -97,4 +95,3 @@ module.exports = {
   createReviewRepository,
   createSummary,
 };
-

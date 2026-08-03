@@ -126,9 +126,15 @@ test('syncSettings 仓储原地补齐家庭归属且不改变现有记录 id', a
 
 test('cardService 仓储只列出活动字卡并写入更新时间', async () => {
   const db = createFakeDb({
+    users: [{ _id: 'user-1', openid: 'openid-1', activeFamilyId: 'family-1', status: 'active' }],
+    children: [{ _id: 'c1', familyId: 'family-1', status: 'active' }],
+    family_members: [{
+      _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active',
+    }],
     cards: [
-      { _id: 'a', childId: 'c1', status: 'active' },
-      { _id: 'b', childId: 'c1', status: 'deleted' },
+      { _id: 'a', familyId: 'family-1', childId: 'c1', status: 'active' },
+      { _id: 'b', familyId: 'family-1', childId: 'c1', status: 'deleted' },
+      { _id: 'foreign', familyId: 'family-2', childId: 'c1', status: 'active' },
     ],
     categories: [
       { _id: 'category-a', childId: 'c1', status: 'active' },
@@ -137,11 +143,13 @@ test('cardService 仓储只列出活动字卡并写入更新时间', async () =>
   });
   const repository = createCardRepository(db);
 
-  const listed = await repository.listActiveCards('c1');
+  const access = await repository.findFamilyAccess('openid-1', 'c1');
+  const listed = await repository.listActiveCards('family-1', 'c1');
   const categories = await repository.findCategoriesByIds(['category-b', 'missing', 'category-a']);
-  const created = await repository.createCard({ childId: 'c1', status: 'active' });
+  const created = await repository.createCard({ familyId: 'family-1', childId: 'c1', status: 'active' });
   const updated = await repository.updateCard(created._id, { proficiency: 'normal' });
 
+  assert.equal(access.familyId, 'family-1');
   assert.deepEqual(listed.map((item) => item._id), ['a']);
   assert.deepEqual(categories.map((item) => item._id), ['category-b', 'category-a']);
   assert.equal(created.createdAt, 'SERVER_DATE');
@@ -151,25 +159,30 @@ test('cardService 仓储只列出活动字卡并写入更新时间', async () =>
 
 test('categoryService 仓储按孩子排序分类并写入更新时间', async () => {
   const db = createFakeDb({
+    users: [{ _id: 'user-1', openid: 'openid-1', activeFamilyId: 'family-1', status: 'active' }],
+    children: [{ _id: 'c1', familyId: 'family-1', status: 'active' }],
+    family_members: [{ familyId: 'family-1', openid: 'openid-1', status: 'active' }],
     categories: [
-      { _id: 'b', childId: 'c1', name: '食品', sortOrder: 2, status: 'active' },
-      { _id: 'a', childId: 'c1', name: '植物', sortOrder: 1, status: 'active' },
-      { _id: 'x', childId: 'c1', name: '旧分类', sortOrder: 0, status: 'inactive' },
+      { _id: 'b', familyId: 'family-1', childId: 'c1', name: '食品', sortOrder: 2, status: 'active' },
+      { _id: 'a', familyId: 'family-1', childId: 'c1', name: '植物', sortOrder: 1, status: 'active' },
+      { _id: 'x', familyId: 'family-1', childId: 'c1', name: '旧分类', sortOrder: 0, status: 'inactive' },
     ],
     cards: [
-      { _id: 'card-a', childId: 'c1', categoryIds: ['a'], status: 'active' },
-      { _id: 'card-b', childId: 'c1', categoryIds: ['a'], status: 'deleted' },
+      { _id: 'card-a', familyId: 'family-1', childId: 'c1', categoryIds: ['a'], status: 'active' },
+      { _id: 'card-b', familyId: 'family-1', childId: 'c1', categoryIds: ['a'], status: 'deleted' },
     ],
   });
   const repository = createCategoryRepository(db);
 
-  const listed = await repository.listCategories('c1');
-  const all = await repository.listCategories('c1', true);
-  const created = await repository.createCategory({ childId: 'c1', name: '家具', normalizedName: '家具', sortOrder: 3, status: 'active' });
+  const access = await repository.findFamilyAccess('openid-1', 'c1');
+  const listed = await repository.listCategories('family-1', 'c1');
+  const all = await repository.listCategories('family-1', 'c1', true);
+  const created = await repository.createCategory({ familyId: 'family-1', childId: 'c1', name: '家具', normalizedName: '家具', sortOrder: 3, status: 'active' });
   const updated = await repository.updateCategory(created._id, { name: '家居', normalizedName: '家居' });
-  const references = await repository.countActiveCardReferences('c1', 'a');
+  const references = await repository.countActiveCardReferences('family-1', 'c1', 'a');
   const inactive = await repository.updateCategoryStatus(created._id, 'inactive');
 
+  assert.equal(access.familyId, 'family-1');
   assert.deepEqual(listed.map((item) => item._id), ['a', 'b']);
   assert.deepEqual(all.map((item) => item._id), ['x', 'a', 'b']);
   assert.equal(created.createdAt, 'SERVER_DATE');
@@ -245,9 +258,9 @@ test('categoryService 仓储首次访问时自动创建缺失的 categories 集�
   };
   const repository = createCategoryRepository(db);
 
-  const listed = await repository.listCategories('c1');
+  const listed = await repository.listCategories('family-1', 'c1');
   const created = await repository.createCategory({
-    childId: 'c1',
+    familyId: 'family-1', childId: 'c1',
     name: '汽车',
     normalizedName: '汽车',
     sortOrder: 0,

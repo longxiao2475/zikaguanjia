@@ -7,18 +7,40 @@ const {
 } = require('../cloudfunctions/cardService/service');
 
 function createMemoryRepository(seed = {}) {
-  const children = [...(seed.children || [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }])];
-  const cards = [...(seed.cards || [])];
-  const categories = [...(seed.categories || [])];
+  const children = [...(seed.children || [{
+    _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', status: 'active',
+  }])];
+  const members = [...(seed.members || [{
+    _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active',
+  }])];
+  const getChildFamily = (childId) => (
+    children.find((child) => child._id === childId) || {}
+  ).familyId;
+  const cards = (seed.cards || []).map((card) => ({
+    familyId: getChildFamily(card.childId),
+    ...card,
+  }));
+  const categories = (seed.categories || []).map((category) => ({
+    familyId: getChildFamily(category.childId),
+    ...category,
+  }));
 
   return {
     cards,
+    async findFamilyAccess(openid, childId) {
+      const child = children.find((item) => item._id === childId) || null;
+      const member = child && members.find((item) => (
+        item.familyId === child.familyId && item.openid === openid && item.status === 'active'
+      ));
+      return child && member ? { child, member, familyId: child.familyId } : null;
+    },
     async findChildById(id) {
       return children.find((item) => item._id === id) || null;
     },
-    async findActiveByNormalized(childId, normalizedContent, excludeId) {
+    async findActiveByNormalized(familyId, childId, normalizedContent, excludeId) {
       return cards.find((item) => (
-        item.childId === childId
+        item.familyId === familyId
+        && item.childId === childId
         && item.normalizedContent === normalizedContent
         && item.status === 'active'
         && item._id !== excludeId
@@ -29,8 +51,10 @@ function createMemoryRepository(seed = {}) {
       cards.push(card);
       return card;
     },
-    async listActiveCards(childId) {
-      return cards.filter((item) => item.childId === childId && item.status === 'active');
+    async listActiveCards(familyId, childId) {
+      return cards.filter((item) => (
+        item.familyId === familyId && item.childId === childId && item.status === 'active'
+      ));
     },
     async findCardById(id) {
       return cards.find((item) => item._id === id) || null;
@@ -49,6 +73,57 @@ function createMemoryRepository(seed = {}) {
 test('标准化内容会执行 NFKC、trim 并移除空白', () => {
   assert.equal(normalizeContent('  大 小  '), '大小');
   assert.equal(normalizeContent('Ａ'), 'A');
+});
+
+test('不同家庭可以拥有同名字卡且复习状态彼此独立', async () => {
+  const repository = createMemoryRepository({
+    children: [
+      { _id: 'child-1', familyId: 'family-1', status: 'active' },
+      { _id: 'child-2', familyId: 'family-2', status: 'active' },
+    ],
+    members: [
+      { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+      { familyId: 'family-2', openid: 'openid-2', status: 'active' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const familyOne = await service.create('openid-1', {
+    childId: 'child-1', content: '苹果', source: 'new',
+  });
+  const familyTwo = await service.create('openid-2', {
+    childId: 'child-2', content: '苹果', source: 'reviewed',
+  });
+
+  assert.notEqual(familyOne._id, familyTwo._id);
+  assert.equal(familyOne.familyId, 'family-1');
+  assert.equal(familyTwo.familyId, 'family-2');
+  assert.equal(familyOne.proficiency, 'unfamiliar');
+  assert.equal(familyTwo.proficiency, 'normal');
+});
+
+test('家庭成员不能按 id 读取另一个家庭的字卡', async () => {
+  const repository = createMemoryRepository({
+    children: [
+      { _id: 'child-1', familyId: 'family-1', status: 'active' },
+      { _id: 'child-2', familyId: 'family-2', status: 'active' },
+    ],
+    members: [
+      { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+      { familyId: 'family-2', openid: 'openid-2', status: 'active' },
+    ],
+    cards: [
+      { _id: 'family-1-card', familyId: 'family-1', childId: 'child-1', status: 'active' },
+      { _id: 'family-2-card', familyId: 'family-2', childId: 'child-2', status: 'active' },
+    ],
+  });
+  const service = createCardService(repository);
+
+  const cards = await service.getByIds('openid-2', {
+    childId: 'child-2', cardIds: ['family-1-card', 'family-2-card'],
+  });
+
+  assert.deepEqual(cards.map((card) => card._id), ['family-2-card']);
 });
 
 test('新学字卡默认不熟，已学过字卡默认一般', async () => {

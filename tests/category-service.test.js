@@ -8,23 +8,49 @@ const {
 } = require('../cloudfunctions/categoryService/service');
 
 function createMemoryRepository(seed = {}) {
-  const children = [...(seed.children || [{ _id: 'child-1', ownerOpenid: 'openid-1', status: 'active' }])];
-  const categories = [...(seed.categories || [])];
-  const cards = [...(seed.cards || [])];
+  const children = (seed.children || [{
+    _id: 'child-1', ownerOpenid: 'openid-1', familyId: 'family-1', status: 'active',
+  }]).map((child) => ({
+    familyId: child.ownerOpenid === 'openid-2' ? 'family-2' : 'family-1',
+    ...child,
+  }));
+  const members = [...(seed.members || [
+    { familyId: 'family-1', openid: 'openid-1', status: 'active' },
+  ])];
+  const categories = (seed.categories || []).map((category) => ({
+    familyId: (children.find((child) => child._id === category.childId) || {}).familyId,
+    ...category,
+  }));
+  const cards = (seed.cards || []).map((card) => ({
+    familyId: (children.find((child) => child._id === card.childId) || {}).familyId,
+    ...card,
+  }));
 
   return {
     categories,
+    async findFamilyAccess(openid, childId) {
+      const child = children.find((item) => item._id === childId) || null;
+      const member = child && members.find((item) => (
+        item.familyId === child.familyId && item.openid === openid && item.status === 'active'
+      ));
+      return child && member ? { child, member, familyId: child.familyId } : null;
+    },
     async findChildById(id) {
       return children.find((item) => item._id === id) || null;
     },
-    async listCategories(childId, includeInactive = false) {
+    async listCategories(familyId, childId, includeInactive = false) {
       return categories
-        .filter((item) => item.childId === childId && (includeInactive || item.status === 'active'))
+        .filter((item) => (
+          item.familyId === familyId
+          && item.childId === childId
+          && (includeInactive || item.status === 'active')
+        ))
         .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, 'zh-CN'));
     },
-    async findByNormalized(childId, normalizedName, excludeId) {
+    async findByNormalized(familyId, childId, normalizedName, excludeId) {
       return categories.find((item) => (
-        item.childId === childId
+        item.familyId === familyId
+        && item.childId === childId
         && item.normalizedName === normalizedName
         && item._id !== excludeId
       )) || null;
@@ -42,9 +68,10 @@ function createMemoryRepository(seed = {}) {
       Object.assign(category, updates);
       return category;
     },
-    async countActiveCardReferences(childId, categoryId) {
+    async countActiveCardReferences(familyId, childId, categoryId) {
       return cards.filter((card) => (
-        card.childId === childId
+        card.familyId === familyId
+        && card.childId === childId
         && card.status === 'active'
         && Array.isArray(card.categoryIds)
         && card.categoryIds.includes(categoryId)
@@ -81,6 +108,24 @@ test('首次读取为孩子生成默认分类且后续读取不会重复生成',
   assert.deepEqual(second.map((item) => item._id), first.map((item) => item._id));
   assert.equal(repository.categories.length, 8);
   assert.equal(first.every((item) => item.isDefault && item.status === 'active'), true);
+});
+
+test('同一家庭的其他成员可以读取和维护共享分类', async () => {
+  const repository = createMemoryRepository({
+    children: [{
+      _id: 'child-1', ownerOpenid: 'owner-openid', familyId: 'family-1', status: 'active',
+    }],
+    members: [
+      { familyId: 'family-1', openid: 'owner-openid', status: 'active' },
+      { familyId: 'family-1', openid: 'member-openid', status: 'active' },
+    ],
+  });
+  const service = createCategoryService(repository);
+
+  const categories = await service.list('member-openid', { childId: 'child-1' });
+
+  assert.equal(categories.length, DEFAULT_CATEGORY_NAMES.length);
+  assert.ok(categories.every((category) => category.familyId === 'family-1'));
 });
 
 test('分类校准停用未引用旧默认分类和汽车别名并保留其他自定义分类', async () => {
