@@ -301,6 +301,36 @@ test('今日计划合并自动到期和手动任务并按字卡 id 去重', asyn
   assert.equal(result.overview.due, 2);
 });
 
+test('人工加入且已自动到期的字卡优先显示且不重复', async () => {
+  const cards = Array.from({ length: 8 }, (_, index) => ({
+    _id: `automatic-${index + 1}`,
+    childId: 'child-1',
+    status: 'active',
+    proficiency: 'unfamiliar',
+    lastReviewAt: null,
+  }));
+  const repository = createMemoryRepository({
+    cards,
+    assignments: [{
+      _id: 'assignment-1',
+      familyId: 'family-1',
+      childId: 'child-1',
+      cardId: 'automatic-8',
+      scheduledDate: '2026-07-25',
+      status: 'pending',
+    }],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const result = await service.getTodayPlan('openid-1', { childId: 'child-1' });
+
+  assert.equal(result.cards[0]._id, 'automatic-8');
+  assert.equal(result.cards[0].reviewSource, 'automatic');
+  assert.equal(result.cards.length, 8);
+});
+
 test('已学过但从未复习的字卡进入今日计划', async () => {
   const repository = createMemoryRepository({
     cards: [

@@ -210,12 +210,14 @@ function createCardService(repository, options = {}) {
       getBusinessDate(currentTime),
     );
     const manualIds = new Set(assignments.map((assignment) => assignment.cardId));
-    const manualOnlyCards = sortCards(allCards.filter((card) => (
-      manualIds.has(card._id) && !automaticIds.has(card._id)
-    )));
+    const manualCards = sortCards(allCards.filter((card) => manualIds.has(card._id)));
+    const automaticOnlyCards = automaticCards.filter((card) => !manualIds.has(card._id));
     const cards = [
-      ...automaticCards.map((card) => ({ ...card, reviewSource: 'automatic' })),
-      ...manualOnlyCards.map((card) => ({ ...card, reviewSource: 'manual' })),
+      ...manualCards.map((card) => ({
+        ...card,
+        reviewSource: automaticIds.has(card._id) ? 'automatic' : 'manual',
+      })),
+      ...automaticOnlyCards.map((card) => ({ ...card, reviewSource: 'automatic' })),
     ];
     return {
       cards,
