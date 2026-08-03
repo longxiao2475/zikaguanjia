@@ -39,6 +39,16 @@ async function getTodayPlan(childId) {
   return result;
 }
 
+async function addReviewAssignments(payload) {
+  const result = await callFunction('cardService', {
+    action: 'addReviewAssignments',
+    ...payload,
+  });
+  cache.setTodayPlan(null);
+  cache.setLastSyncAt(Date.now());
+  return result;
+}
+
 async function updateCard(payload) {
   const card = await callFunction('cardService', { action: 'update', ...payload });
   cache.setCards(cache.getCards().map((item) => (item._id === card._id ? card : item)));
@@ -56,6 +66,7 @@ async function deleteCard(payload) {
 }
 
 module.exports = {
+  addReviewAssignments,
   createCard,
   deleteCard,
   getCardsByIds,

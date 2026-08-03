@@ -174,6 +174,24 @@ test('搜索列表透传 keyword，按 ID 补查调用 getByIds', async () => {
   assert.deepEqual(cards, [{ _id: 'a' }]);
 });
 
+test('加入今日待复习调用持久化接口并废弃今日计划缓存', async () => {
+  cache.setTodayPlan({ cards: [{ _id: 'old' }] });
+  global.__cloudResponse = {
+    result: { ok: true, data: { addedCount: 2, existingCount: 1, scheduledDate: '2026-08-03' } },
+  };
+
+  const result = await cardApi.addReviewAssignments({
+    childId: 'c1', cardIds: ['a', 'b', 'c'],
+  });
+
+  assert.deepEqual(calls[0], {
+    name: 'cardService',
+    data: { action: 'addReviewAssignments', childId: 'c1', cardIds: ['a', 'b', 'c'] },
+  });
+  assert.equal(cache.getTodayPlan(), null);
+  assert.equal(result.addedCount, 2);
+});
+
 test('完成复习后合并返回字卡并废弃今日计划缓存', async () => {
   cache.setCards([
     { _id: 'a', proficiency: 'unfamiliar' },

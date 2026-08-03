@@ -166,9 +166,10 @@
     <view class="selection-bar__count">已选 {{selectedCount}} 张</view>
     <button
       class="primary-button selection-bar__button"
-      bindtap="onStartSelectedReview"
-      disabled="{{selectedCount === 0}}"
-    >开始复习</button>
+      bindtap="onAddSelectedToToday"
+      loading="{{addingToToday}}"
+      disabled="{{selectedCount === 0 || addingToToday}}"
+    >加入今日待复习</button>
   </view>
 
   <view wx:if="{{showWordDetail}}" class="word-detail-mask" bindtap="onCloseWordDetail">

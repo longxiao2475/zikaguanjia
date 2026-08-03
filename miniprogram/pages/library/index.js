@@ -139,6 +139,7 @@ Page({
     showCategoryFilterPicker: false,
     showEditCategoryPicker: false,
     deletingCardId: '',
+    addingToToday: false,
   },
 
   onShow() {
@@ -454,11 +455,33 @@ Page({
     });
   },
 
-  onStartSelectedReview() {
-    if (!this.data.selectedIds.length) return;
-    cache.setManualReviewQueue(this.data.selectedIds);
-    this.setData({ selectionMode: false, selectedIds: [], selectedCount: 0 });
-    wx.navigateTo({ url: '/pages/review/index?source=manual' });
+  async onAddSelectedToToday() {
+    if (!this.data.selectedIds.length || this.data.addingToToday) return;
+    this.setData({ addingToToday: true });
+    try {
+      const child = await this.ensureChild();
+      const result = await cardApi.addReviewAssignments({
+        childId: child._id,
+        cardIds: this.data.selectedIds,
+      });
+      const addedCount = Number(result.addedCount || 0);
+      const existingCount = Number(result.existingCount || 0);
+      const title = existingCount
+        ? `已加入 ${addedCount} 张，${existingCount} 张已在列表`
+        : `已加入今日待复习（${addedCount} 张）`;
+      this.setData({
+        selectionMode: false,
+        selectedIds: [],
+        selectedCount: 0,
+        items: this.data.items.map((item) => ({ ...item, selected: false })),
+      });
+      wx.showToast({ title, icon: 'none' });
+      wx.switchTab({ url: '/pages/index/index' });
+    } catch (error) {
+      wx.showToast({ title: error.message || '加入失败，请重试', icon: 'none' });
+    } finally {
+      this.setData({ addingToToday: false });
+    }
   },
 
   onAddCard() {

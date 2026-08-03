@@ -68,6 +68,7 @@ function createContext(definition, data = {}) {
       showCategoryFilterPicker: false,
       showEditCategoryPicker: false,
       deletingCardId: '',
+      addingToToday: false,
       selectedFilter: 'all',
       keyword: '',
       reviewAgeDays: 0,
@@ -85,6 +86,73 @@ function createContext(definition, data = {}) {
     },
   };
 }
+
+test('选择的字卡加入今日待复习后清空选择并回到首页', async () => {
+  let payload;
+  const switches = [];
+  const toasts = [];
+  const definition = loadLibraryPage({
+    cardApi: {
+      addReviewAssignments: async (value) => {
+        payload = value;
+        return { addedCount: 2, existingCount: 1 };
+      },
+    },
+    wxApi: {
+      showToast: (options) => toasts.push(options),
+      switchTab: (options) => switches.push(options),
+      stopPullDownRefresh() {},
+    },
+  });
+  const context = createContext(definition, {
+    selectionMode: true,
+    selectedIds: ['card-1', 'card-2', 'card-3'],
+    selectedCount: 3,
+    items: [
+      { _id: 'card-1', selected: true },
+      { _id: 'card-2', selected: true },
+      { _id: 'card-3', selected: true },
+    ],
+  });
+
+  await definition.onAddSelectedToToday.call(context);
+
+  assert.deepEqual(payload, {
+    childId: 'child-1', cardIds: ['card-1', 'card-2', 'card-3'],
+  });
+  assert.equal(context.data.selectionMode, false);
+  assert.deepEqual(context.data.selectedIds, []);
+  assert.ok(context.data.items.every((item) => item.selected === false));
+  assert.equal(toasts.at(-1).title, '已加入 2 张，1 张已在列表');
+  assert.deepEqual(switches, [{ url: '/pages/index/index' }]);
+});
+
+test('加入今日待复习失败时保留当前选择以便重试', async () => {
+  const toasts = [];
+  const definition = loadLibraryPage({
+    cardApi: {
+      addReviewAssignments: async () => { throw new Error('网络异常'); },
+    },
+    wxApi: {
+      showToast: (options) => toasts.push(options),
+      switchTab() { throw new Error('不应跳转'); },
+      stopPullDownRefresh() {},
+    },
+  });
+  const context = createContext(definition, {
+    selectionMode: true,
+    selectedIds: ['card-1'],
+    selectedCount: 1,
+    items: [{ _id: 'card-1', selected: true }],
+  });
+
+  await definition.onAddSelectedToToday.call(context);
+
+  assert.equal(context.data.selectionMode, true);
+  assert.deepEqual(context.data.selectedIds, ['card-1']);
+  assert.equal(context.data.addingToToday, false);
+  assert.equal(toasts.at(-1).title, '网络异常');
+});
 
 test('修改字卡内容时清空旧自定义组词并关闭编辑层', async () => {
   let payload;
