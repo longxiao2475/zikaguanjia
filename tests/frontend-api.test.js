@@ -232,3 +232,22 @@ test('保存共享孩子设置和个人提醒后分别更新缓存', async () =>
   assert.deepEqual(cache.getChild(), result.child);
   assert.deepEqual(cache.getMember(), result.member);
 });
+
+test('家庭 API 生成邀请码并获取加入预览', async () => {
+  global.__cloudResponse = {
+    result: { ok: true, data: { code: 'ABCD2345', expiresAt: '2026-08-04T00:00:00.000Z' } },
+  };
+  const invite = await session.createFamilyInvite();
+  assert.equal(invite.code, 'ABCD2345');
+  assert.deepEqual(calls[0].data, { action: 'createFamilyInvite' });
+
+  global.__cloudResponse = {
+    result: { ok: true, data: { familyName: '果果家庭', duplicateCardCount: 2 } },
+  };
+  const preview = await session.previewFamilyJoin(' abcd-2345 ');
+  assert.equal(preview.familyName, '果果家庭');
+  assert.deepEqual(calls[1].data, {
+    action: 'previewFamilyJoin',
+    code: ' abcd-2345 ',
+  });
+});

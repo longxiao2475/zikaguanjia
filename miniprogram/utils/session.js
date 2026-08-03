@@ -32,8 +32,34 @@ async function saveSettings(payload) {
   return data;
 }
 
+function getFamilySummary() {
+  return callFunction('syncSettings', { action: 'getFamilySummary' });
+}
+
+function createFamilyInvite() {
+  return callFunction('syncSettings', { action: 'createFamilyInvite' });
+}
+
+function previewFamilyJoin(code) {
+  return callFunction('syncSettings', { action: 'previewFamilyJoin', code });
+}
+
+async function confirmFamilyJoin(code, requestId) {
+  const result = await callFunction('syncSettings', {
+    action: 'confirmFamilyJoin',
+    code,
+    requestId,
+  });
+  await bootstrap();
+  return result;
+}
+
 module.exports = {
   bootstrap,
+  confirmFamilyJoin,
+  createFamilyInvite,
+  getFamilySummary,
   getCachedSession,
+  previewFamilyJoin,
   saveSettings,
 };

@@ -3,6 +3,7 @@ function createSyncSettingsRepository(db) {
   const children = db.collection('children');
   const families = db.collection('families');
   const familyMembers = db.collection('family_members');
+  const familyInvites = db.collection('family_invites');
   const cards = db.collection('cards');
   const categories = db.collection('categories');
   const reviewSessions = db.collection('review_sessions');
@@ -159,6 +160,63 @@ function createSyncSettingsRepository(db) {
         data: { ...updates, updatedAt: db.serverDate() },
       });
       return readById(familyMembers, id);
+    },
+
+    async countActiveMembers(familyId) {
+      return (await listAll(familyMembers, { familyId, status: 'active' })).length;
+    },
+
+    async expireActiveInvites(familyId) {
+      let invites;
+      try {
+        invites = await listAll(familyInvites, { familyId, status: 'active' });
+      } catch (error) {
+        if (!isMissingCollectionError(error)) throw error;
+        return 0;
+      }
+      for (const invite of invites) {
+        await familyInvites.doc(invite._id).update({
+          data: { status: 'expired', updatedAt: db.serverDate() },
+        });
+      }
+      return invites.length;
+    },
+
+    async createInvite(data) {
+      const serverDate = db.serverDate();
+      const result = await runCollectionOperation(
+        'family_invites',
+        familyInvites,
+        () => familyInvites.add({
+          data: {
+            ...data,
+            createdAt: data.createdAt || serverDate,
+            updatedAt: serverDate,
+          },
+        }),
+      );
+      return readById(familyInvites, result._id);
+    },
+
+    async findInviteByDigest(codeDigest) {
+      const result = await runCollectionOperation(
+        'family_invites',
+        familyInvites,
+        () => familyInvites.where({ codeDigest }).limit(1).get(),
+      );
+      return result.data[0] || null;
+    },
+
+    async listActiveChildrenByFamily(familyId) {
+      return listAll(children, { familyId, status: 'active' });
+    },
+
+    async listActiveCardsByFamily(familyId) {
+      return listAll(cards, { familyId, status: 'active' });
+    },
+
+    async listActiveCategoriesByFamily(familyId) {
+      return listAll(categories, { familyId, status: 'active' });
     },
 
     async findChildById(id) {

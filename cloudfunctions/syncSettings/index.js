@@ -20,7 +20,14 @@ function errorResult(error) {
 exports.main = async (event = {}) => {
   try {
     const action = service[event.action];
-    if (!['bootstrap', 'saveSettings'].includes(event.action) || typeof action !== 'function') {
+    if (![
+      'bootstrap',
+      'saveSettings',
+      'createFamilyInvite',
+      'previewFamilyJoin',
+      'confirmFamilyJoin',
+      'getFamilySummary',
+    ].includes(event.action) || typeof action !== 'function') {
       const error = new Error('不支持的操作');
       error.code = 'ACTION_NOT_SUPPORTED';
       throw error;

@@ -1,4 +1,7 @@
 const DEFAULT_STUDY_DAYS = Object.freeze([2, 4, 6]);
+const crypto = require('crypto');
+const { generateInviteCode, normalizeInviteCode } = require('./family');
+const INVITE_TTL_MS = 24 * 60 * 60 * 1000;
 
 function businessError(code, message) {
   const error = new Error(message || code);
@@ -25,8 +28,114 @@ function normalizeStudyDays(value) {
   return days.sort((left, right) => left - right);
 }
 
-function createSyncSettingsService(repository) {
+function createSyncSettingsService(repository, options = {}) {
   if (!repository) throw new Error('REPOSITORY_REQUIRED');
+  const now = options.now || (() => new Date());
+  const random = options.random || Math.random;
+  const inviteSecret = options.inviteSecret || process.env.FAMILY_INVITE_SECRET || '';
+
+  function digestInviteCode(code) {
+    if (!inviteSecret) {
+      throw businessError('FAMILY_INVITE_SECRET_MISSING', '家庭邀请服务尚未配置');
+    }
+    return crypto.createHmac('sha256', inviteSecret).update(code).digest('hex');
+  }
+
+  async function getFamilyContext(openid) {
+    const user = await repository.findUserByOpenid(openid);
+    const family = user && await repository.findFamilyById(user.activeFamilyId);
+    const member = user && await repository.findActiveMember(user.activeFamilyId, openid);
+    if (!user || !family || family.status !== 'active' || !member) {
+      throw businessError('FAMILY_FORBIDDEN', '无权访问该家庭');
+    }
+    return { user, family, member };
+  }
+
+  async function getValidInvite(rawCode) {
+    const code = normalizeInviteCode(rawCode);
+    if (!/^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/.test(code)) {
+      throw businessError('FAMILY_INVITE_INVALID', '家庭码无效或已过期');
+    }
+    const invite = await repository.findInviteByDigest(digestInviteCode(code));
+    const expiresAt = invite && new Date(invite.expiresAt).getTime();
+    if (
+      !invite
+      || invite.status !== 'active'
+      || Number(invite.usedCount || 0) >= Number(invite.maxUses || 1)
+      || !Number.isFinite(expiresAt)
+      || expiresAt <= now().getTime()
+    ) {
+      throw businessError('FAMILY_INVITE_INVALID', '家庭码无效或已过期');
+    }
+    return { code, invite };
+  }
+
+  async function createFamilyInvite(openid) {
+    const { family, member } = await getFamilyContext(openid);
+    if (member.role !== 'owner') {
+      throw businessError('FAMILY_OWNER_REQUIRED', '只有家庭创建人可以生成家庭码');
+    }
+    const code = generateInviteCode(random);
+    const createdAt = now();
+    const expiresAt = new Date(createdAt.getTime() + INVITE_TTL_MS);
+    await repository.expireActiveInvites(family._id);
+    await repository.createInvite({
+      familyId: family._id,
+      codeDigest: digestInviteCode(code),
+      status: 'active',
+      maxUses: 1,
+      usedCount: 0,
+      createdByOpenid: openid,
+      createdAt,
+      expiresAt,
+      usedAt: null,
+      usedByOpenid: null,
+    });
+    return { code, expiresAt };
+  }
+
+  async function previewFamilyJoin(openid, payload = {}) {
+    const source = await getFamilyContext(openid);
+    const { invite } = await getValidInvite(payload.code);
+    if (invite.familyId === source.family._id) {
+      throw businessError('ALREADY_IN_FAMILY', '当前账号已经在这个家庭中');
+    }
+    const sourceMemberCount = await repository.countActiveMembers(source.family._id);
+    if (sourceMemberCount !== 1) {
+      throw businessError('SOURCE_FAMILY_HAS_MEMBERS', '当前家庭已有其他成员，不能直接合并');
+    }
+    const [targetFamily, targetMemberCount, sourceChildren, targetChildren] = await Promise.all([
+      repository.findFamilyById(invite.familyId),
+      repository.countActiveMembers(invite.familyId),
+      repository.listActiveChildrenByFamily(source.family._id),
+      repository.listActiveChildrenByFamily(invite.familyId),
+    ]);
+    if (!targetFamily || targetFamily.status !== 'active' || !sourceChildren.length || !targetChildren.length) {
+      throw businessError('FAMILY_INVITE_INVALID', '家庭码无效或已过期');
+    }
+    const [sourceCards, targetCards, sourceCategories, targetCategories] = await Promise.all([
+      repository.listActiveCardsByFamily(source.family._id),
+      repository.listActiveCardsByFamily(invite.familyId),
+      repository.listActiveCategoriesByFamily(source.family._id),
+      repository.listActiveCategoriesByFamily(invite.familyId),
+    ]);
+    const targetContents = new Set(targetCards.map((card) => card.normalizedContent));
+    const targetCategoryNames = new Set(targetCategories.map((category) => category.normalizedName));
+    const duplicateCardCount = sourceCards.filter((card) => (
+      targetContents.has(card.normalizedContent)
+    )).length;
+    return {
+      familyName: targetFamily.name || '家庭',
+      memberCount: targetMemberCount,
+      sourceCardCount: sourceCards.length,
+      targetCardCount: targetCards.length,
+      duplicateCardCount,
+      uniqueCardCount: sourceCards.length - duplicateCardCount,
+      categoryConflictCount: sourceCategories.filter((category) => (
+        targetCategoryNames.has(category.normalizedName)
+      )).length,
+    };
+  }
 
   async function ensureFamily(openid, user) {
     let family = user.activeFamilyId
@@ -164,11 +273,17 @@ function createSyncSettingsService(repository) {
     return { child: updatedChild, member: updatedMember };
   }
 
-  return { bootstrap, saveSettings };
+  return {
+    bootstrap,
+    createFamilyInvite,
+    previewFamilyJoin,
+    saveSettings,
+  };
 }
 
 module.exports = {
   DEFAULT_STUDY_DAYS,
+  INVITE_TTL_MS,
   businessError,
   createSyncSettingsService,
   normalizeName,

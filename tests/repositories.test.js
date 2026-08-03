@@ -13,6 +13,7 @@ function createFakeDb(seed = {}) {
     categories: [...(seed.categories || [])],
     families: [...(seed.families || [])],
     family_members: [...(seed.family_members || [])],
+    family_invites: [...(seed.family_invites || [])],
     review_sessions: [...(seed.review_sessions || [])],
     reminder_logs: [...(seed.reminder_logs || [])],
   };
@@ -128,6 +129,35 @@ test('syncSettings 仓储原地补齐家庭归属且不改变现有记录 id', a
   assert.equal(db.tables.reminder_logs[0].familyId, family._id);
   assert.equal(await repository.countActiveCards(['child-1'], family._id), 1);
   assert.equal((await repository.findActiveMember(family._id, 'openid-1')).role, 'owner');
+});
+
+test('syncSettings 仓储管理家庭邀请码和家庭数据摘要', async () => {
+  const db = createFakeDb({
+    families: [{ _id: 'family-1', status: 'active' }],
+    family_members: [
+      { _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active' },
+      { _id: 'member-old', familyId: 'family-1', openid: 'openid-old', status: 'inactive' },
+    ],
+    children: [{ _id: 'child-1', familyId: 'family-1', status: 'active' }],
+    cards: [{ _id: 'card-1', familyId: 'family-1', childId: 'child-1', status: 'active' }],
+    categories: [{ _id: 'category-1', familyId: 'family-1', childId: 'child-1', status: 'active' }],
+    family_invites: [{
+      _id: 'invite-old', familyId: 'family-1', codeDigest: 'old', status: 'active',
+    }],
+  });
+  const repository = createSyncSettingsRepository(db);
+
+  await repository.expireActiveInvites('family-1');
+  const invite = await repository.createInvite({
+    familyId: 'family-1', codeDigest: 'new', status: 'active', maxUses: 1, usedCount: 0,
+  });
+
+  assert.equal(db.tables.family_invites[0].status, 'expired');
+  assert.equal((await repository.findInviteByDigest('new'))._id, invite._id);
+  assert.equal(await repository.countActiveMembers('family-1'), 1);
+  assert.deepEqual((await repository.listActiveChildrenByFamily('family-1')).map((item) => item._id), ['child-1']);
+  assert.deepEqual((await repository.listActiveCardsByFamily('family-1')).map((item) => item._id), ['card-1']);
+  assert.deepEqual((await repository.listActiveCategoriesByFamily('family-1')).map((item) => item._id), ['category-1']);
 });
 
 test('cardService 仓储只列出活动字卡并写入更新时间', async () => {
