@@ -82,6 +82,9 @@ function createMemoryRepository(seed = {}) {
     async listActiveChildrenByOwner(openid) {
       return children.filter((item) => item.ownerOpenid === openid && item.status === 'active');
     },
+    async listActiveChildrenByFamily(familyId) {
+      return children.filter((item) => item.familyId === familyId && item.status === 'active');
+    },
     async backfillChildrenFamily(openid, familyId) {
       children
         .filter((item) => item.ownerOpenid === openid && item.status === 'active')
@@ -200,6 +203,43 @@ test('重复 bootstrap 复用同一个家庭和成员且不会重复迁移字卡
   assert.equal(repository.members.length, 1);
   assert.equal(repository.cards.length, 1);
   assert.equal(repository.cards[0].reviewCount, 3);
+});
+
+test('加入家庭后的成员 bootstrap 使用目标家庭孩子而不再按 ownerOpenid 误判', async () => {
+  const repository = createMemoryRepository({
+    users: [{
+      _id: 'joiner-user', openid: 'joiner-openid', activeFamilyId: 'target-family',
+      defaultChildId: 'source-child', status: 'active',
+    }],
+    families: [{ _id: 'target-family', createdByOpenid: 'owner-openid', status: 'active' }],
+    members: [{
+      _id: 'joiner-member', familyId: 'target-family', openid: 'joiner-openid',
+      role: 'member', status: 'active', reminderTime: '20:00', reminderEnabled: true,
+    }],
+    children: [
+      {
+        _id: 'target-child', familyId: 'target-family', ownerOpenid: 'owner-openid',
+        name: '果果', status: 'active',
+      },
+      {
+        _id: 'source-child', familyId: 'source-family', ownerOpenid: 'joiner-openid',
+        status: 'merged', mergedIntoChildId: 'target-child',
+      },
+    ],
+    cards: [{
+      _id: 'target-card', familyId: 'target-family', childId: 'target-child', status: 'active',
+    }],
+  });
+  const service = createSyncSettingsService(repository);
+
+  const result = await service.bootstrap('joiner-openid');
+
+  assert.equal(result.child._id, 'target-child');
+  assert.equal(result.child.ownerOpenid, 'owner-openid');
+  assert.equal(result.member.role, 'member');
+  assert.equal(result.user.defaultChildId, 'target-child');
+  assert.equal(repository.children.length, 2);
+  assert.equal(repository.families.length, 1);
 });
 
 test('拒绝空 openid', async () => {

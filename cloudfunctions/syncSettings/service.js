@@ -256,17 +256,34 @@ function createSyncSettingsService(repository, options = {}) {
       });
     }
 
-    let child = null;
-    if (user.defaultChildId) {
-      child = await repository.findChildById(user.defaultChildId);
-      if (child && (child.ownerOpenid !== openid || child.status !== 'active')) {
-        child = null;
+    if (user.activeFamilyId) {
+      const [family, member, familyChildren] = await Promise.all([
+        repository.findFamilyById(user.activeFamilyId),
+        repository.findActiveMember(user.activeFamilyId, openid),
+        repository.listActiveChildrenByFamily(user.activeFamilyId),
+      ]);
+      if (family && family.status === 'active' && member && familyChildren.length) {
+        let child = familyChildren.find((item) => item._id === user.defaultChildId) || familyChildren[0];
+        if (user.defaultChildId !== child._id) {
+          user = await repository.updateUser(user._id, { defaultChildId: child._id });
+        }
+        return {
+          user,
+          family,
+          member,
+          child,
+          migration: {
+            activeCardCount: await repository.countActiveCards(
+              familyChildren.map((item) => item._id),
+              family._id,
+            ),
+            childCount: familyChildren.length,
+          },
+        };
       }
     }
 
-    if (!child) {
-      child = await repository.findActiveChildByOwner(openid);
-    }
+    let child = await repository.findActiveChildByOwner(openid);
 
     if (!child) {
       child = await repository.createChild({

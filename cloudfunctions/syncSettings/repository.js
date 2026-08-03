@@ -448,36 +448,50 @@ function createSyncSettingsRepository(db) {
             },
           });
         }
-        if (sourceMember) {
-          await familyMembers.doc(sourceMember._id).update({
-            data: { status: 'inactive', leftAt: db.serverDate(), updatedAt: db.serverDate() },
-          });
-        }
         const joiningUserResult = await users.where({
           openid: payload.requestedByOpenid,
           status: 'active',
         }).limit(1).get();
         const joiningUser = joiningUserResult.data[0] || null;
         if (!joiningUser) throw new Error('JOINING_USER_NOT_FOUND');
-        await users.doc(joiningUser._id).update({
-          data: { activeFamilyId: payload.targetFamilyId, updatedAt: db.serverDate() },
-        });
-        await families.doc(payload.sourceFamilyId).update({
-          data: {
-            status: 'merged',
-            mergedIntoFamilyId: payload.targetFamilyId,
-            mergeLocked: false,
-            updatedAt: db.serverDate(),
-          },
-        });
-        await familyInvites.doc(payload.inviteId).update({
-          data: {
-            status: 'used',
-            usedCount: 1,
-            usedAt: db.serverDate(),
-            usedByOpenid: payload.requestedByOpenid,
-            updatedAt: db.serverDate(),
-          },
+        await db.runTransaction(async (transaction) => {
+          const switchedAt = db.serverDate();
+          if (sourceMember) {
+            await transaction.collection('family_members').doc(sourceMember._id).update({
+              data: { status: 'inactive', leftAt: switchedAt, updatedAt: switchedAt },
+            });
+          }
+          await transaction.collection('users').doc(joiningUser._id).update({
+            data: {
+              activeFamilyId: payload.targetFamilyId,
+              defaultChildId: payload.targetChildId,
+              updatedAt: switchedAt,
+            },
+          });
+          await transaction.collection('children').doc(payload.sourceChildId).update({
+            data: {
+              status: 'merged',
+              mergedIntoChildId: payload.targetChildId,
+              updatedAt: switchedAt,
+            },
+          });
+          await transaction.collection('families').doc(payload.sourceFamilyId).update({
+            data: {
+              status: 'merged',
+              mergedIntoFamilyId: payload.targetFamilyId,
+              mergeLocked: false,
+              updatedAt: switchedAt,
+            },
+          });
+          await transaction.collection('family_invites').doc(payload.inviteId).update({
+            data: {
+              status: 'used',
+              usedCount: 1,
+              usedAt: switchedAt,
+              usedByOpenid: payload.requestedByOpenid,
+              updatedAt: switchedAt,
+            },
+          });
         });
         const result = {
           requestId: payload.requestId,

@@ -170,7 +170,8 @@ test('syncSettings 仓储管理家庭邀请码和家庭数据摘要', async () =
 test('syncSettings 仓储幂等合并家庭并保留目标进度和来源独有字卡 id', async () => {
   const db = createFakeDb({
     users: [{
-      _id: 'joining-user', openid: 'joining-openid', activeFamilyId: 'source-family', status: 'active',
+      _id: 'joining-user', openid: 'joining-openid', activeFamilyId: 'source-family',
+      defaultChildId: 'source-child', status: 'active',
     }],
     families: [
       { _id: 'source-family', status: 'active' },
@@ -265,6 +266,12 @@ test('syncSettings 仓储幂等合并家庭并保留目标进度和来源独有�
     item._id === 'source-assignment-banana'
   )).cardId, 'source-banana');
   assert.equal(db.tables.users[0].activeFamilyId, 'target-family');
+  assert.equal(db.tables.users[0].defaultChildId, 'target-child');
+  assert.equal(db.tables.children.find((child) => child._id === 'source-child').status, 'merged');
+  assert.equal(
+    db.tables.children.find((child) => child._id === 'source-child').mergedIntoChildId,
+    'target-child',
+  );
   assert.equal(db.tables.family_members.filter((item) => item.status === 'active').length, 1);
   assert.equal(db.tables.family_invites[0].status, 'used');
   assert.equal((await repository.findMergeResult('joining-openid', 'request-1')).familyId, 'target-family');
