@@ -137,6 +137,55 @@ function createSyncSettingsService(repository, options = {}) {
     };
   }
 
+  async function getFamilySummary(openid) {
+    const { family, member } = await getFamilyContext(openid);
+    return {
+      family: { _id: family._id, name: family.name || '我的家庭' },
+      member: { role: member.role },
+      memberCount: await repository.countActiveMembers(family._id),
+    };
+  }
+
+  async function confirmFamilyJoin(openid, payload = {}) {
+    const requestId = typeof payload.requestId === 'string' ? payload.requestId.trim() : '';
+    if (!/^[A-Za-z0-9_-]{1,64}$/.test(requestId)) {
+      throw businessError('JOIN_REQUEST_ID_INVALID', '加入请求无效，请重试');
+    }
+    const existingResult = await repository.findMergeResult(openid, requestId);
+    if (existingResult) return existingResult;
+
+    const source = await getFamilyContext(openid);
+    const { invite } = await getValidInvite(payload.code);
+    if (invite.familyId === source.family._id) {
+      throw businessError('ALREADY_IN_FAMILY', '当前账号已经在这个家庭中');
+    }
+    if (await repository.countActiveMembers(source.family._id) !== 1) {
+      throw businessError('SOURCE_FAMILY_HAS_MEMBERS', '当前家庭已有其他成员，不能直接合并');
+    }
+    const [sourceChildren, targetChildren, targetFamily] = await Promise.all([
+      repository.listActiveChildrenByFamily(source.family._id),
+      repository.listActiveChildrenByFamily(invite.familyId),
+      repository.findFamilyById(invite.familyId),
+    ]);
+    if (
+      !targetFamily
+      || targetFamily.status !== 'active'
+      || sourceChildren.length !== 1
+      || targetChildren.length !== 1
+    ) {
+      throw businessError('FAMILY_MERGE_CHILDREN_UNSUPPORTED', '当前家庭数据暂不支持直接合并');
+    }
+    return repository.mergeFamilies({
+      requestId,
+      requestedByOpenid: openid,
+      sourceFamilyId: source.family._id,
+      targetFamilyId: invite.familyId,
+      sourceChildId: sourceChildren[0]._id,
+      targetChildId: targetChildren[0]._id,
+      inviteId: invite._id,
+    });
+  }
+
   async function ensureFamily(openid, user) {
     let family = user.activeFamilyId
       ? await repository.findFamilyById(user.activeFamilyId)
@@ -275,7 +324,9 @@ function createSyncSettingsService(repository, options = {}) {
 
   return {
     bootstrap,
+    confirmFamilyJoin,
     createFamilyInvite,
+    getFamilySummary,
     previewFamilyJoin,
     saveSettings,
   };

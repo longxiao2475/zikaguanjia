@@ -14,6 +14,7 @@ function createFakeDb(seed = {}) {
     families: [...(seed.families || [])],
     family_members: [...(seed.family_members || [])],
     family_invites: [...(seed.family_invites || [])],
+    family_merge_jobs: [...(seed.family_merge_jobs || [])],
     review_sessions: [...(seed.review_sessions || [])],
     reminder_logs: [...(seed.reminder_logs || [])],
   };
@@ -158,6 +159,86 @@ test('syncSettings 仓储管理家庭邀请码和家庭数据摘要', async () =
   assert.deepEqual((await repository.listActiveChildrenByFamily('family-1')).map((item) => item._id), ['child-1']);
   assert.deepEqual((await repository.listActiveCardsByFamily('family-1')).map((item) => item._id), ['card-1']);
   assert.deepEqual((await repository.listActiveCategoriesByFamily('family-1')).map((item) => item._id), ['category-1']);
+});
+
+test('syncSettings 仓储幂等合并家庭并保留目标进度和来源独有字卡 id', async () => {
+  const db = createFakeDb({
+    users: [{
+      _id: 'joining-user', openid: 'joining-openid', activeFamilyId: 'source-family', status: 'active',
+    }],
+    families: [
+      { _id: 'source-family', status: 'active' },
+      { _id: 'target-family', status: 'active' },
+    ],
+    family_members: [{
+      _id: 'source-member', familyId: 'source-family', openid: 'joining-openid',
+      role: 'owner', reminderTime: '19:00', reminderEnabled: true, status: 'active',
+    }],
+    children: [
+      { _id: 'source-child', familyId: 'source-family', status: 'active' },
+      { _id: 'target-child', familyId: 'target-family', status: 'active' },
+    ],
+    categories: [
+      { _id: 'source-food', familyId: 'source-family', childId: 'source-child', normalizedName: '食品', status: 'active' },
+      { _id: 'source-fruit', familyId: 'source-family', childId: 'source-child', normalizedName: '水果', status: 'active' },
+      { _id: 'target-food', familyId: 'target-family', childId: 'target-child', normalizedName: '食品', status: 'active' },
+    ],
+    cards: [
+      {
+        _id: 'source-apple', familyId: 'source-family', childId: 'source-child',
+        normalizedContent: '苹果', proficiency: 'unfamiliar', reviewCount: 1,
+        customWords: ['苹果树'], categoryIds: ['source-food'], status: 'active',
+      },
+      {
+        _id: 'source-banana', familyId: 'source-family', childId: 'source-child',
+        normalizedContent: '香蕉', proficiency: 'normal', reviewCount: 2,
+        categoryIds: ['source-fruit'], status: 'active',
+      },
+      {
+        _id: 'target-apple', familyId: 'target-family', childId: 'target-child',
+        normalizedContent: '苹果', proficiency: 'proficient', reviewCount: 9,
+        customWords: ['苹果汁'], categoryIds: ['target-food'], status: 'active',
+      },
+    ],
+    review_sessions: [{
+      _id: 'source-session', familyId: 'source-family', childId: 'source-child', status: 'completed',
+      items: [{ cardId: 'source-apple' }, { cardId: 'source-banana' }],
+    }],
+    family_invites: [{
+      _id: 'invite-1', familyId: 'target-family', status: 'active', maxUses: 1, usedCount: 0,
+    }],
+  });
+  const repository = createSyncSettingsRepository(db);
+  const payload = {
+    requestId: 'request-1',
+    requestedByOpenid: 'joining-openid',
+    sourceFamilyId: 'source-family',
+    targetFamilyId: 'target-family',
+    sourceChildId: 'source-child',
+    targetChildId: 'target-child',
+    inviteId: 'invite-1',
+  };
+
+  const first = await repository.mergeFamilies(payload);
+  const second = await repository.mergeFamilies(payload);
+
+  assert.deepEqual(second, first);
+  assert.equal(db.tables.cards.find((card) => card._id === 'target-apple').proficiency, 'proficient');
+  assert.equal(db.tables.cards.find((card) => card._id === 'target-apple').reviewCount, 9);
+  assert.deepEqual(
+    db.tables.cards.find((card) => card._id === 'target-apple').customWords.sort(),
+    ['苹果树', '苹果汁'].sort(),
+  );
+  assert.equal(db.tables.cards.find((card) => card._id === 'source-apple').status, 'merged');
+  assert.equal(db.tables.cards.find((card) => card._id === 'source-banana').familyId, 'target-family');
+  assert.equal(db.tables.cards.find((card) => card._id === 'source-banana')._id, 'source-banana');
+  assert.deepEqual(db.tables.review_sessions[0].items.map((item) => item.cardId), [
+    'target-apple', 'source-banana',
+  ]);
+  assert.equal(db.tables.users[0].activeFamilyId, 'target-family');
+  assert.equal(db.tables.family_members.filter((item) => item.status === 'active').length, 1);
+  assert.equal(db.tables.family_invites[0].status, 'used');
+  assert.equal((await repository.findMergeResult('joining-openid', 'request-1')).familyId, 'target-family');
 });
 
 test('cardService 仓储只列出活动字卡并写入更新时间', async () => {

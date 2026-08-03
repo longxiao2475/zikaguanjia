@@ -4,6 +4,7 @@ function createSyncSettingsRepository(db) {
   const families = db.collection('families');
   const familyMembers = db.collection('family_members');
   const familyInvites = db.collection('family_invites');
+  const familyMergeJobs = db.collection('family_merge_jobs');
   const cards = db.collection('cards');
   const categories = db.collection('categories');
   const reviewSessions = db.collection('review_sessions');
@@ -205,6 +206,259 @@ function createSyncSettingsRepository(db) {
         () => familyInvites.where({ codeDigest }).limit(1).get(),
       );
       return result.data[0] || null;
+    },
+
+    async findMergeResult(openid, requestId) {
+      let result;
+      try {
+        result = await familyMergeJobs.where({
+          requestedByOpenid: openid,
+          requestId,
+          status: 'completed',
+        }).limit(1).get();
+      } catch (error) {
+        if (isMissingCollectionError(error)) return null;
+        throw error;
+      }
+      const job = result.data[0] || null;
+      return job && job.result ? job.result : null;
+    },
+
+    async mergeFamilies(payload) {
+      const existingResult = await this.findMergeResult(
+        payload.requestedByOpenid,
+        payload.requestId,
+      );
+      if (existingResult) return existingResult;
+
+      let jobResult = await runCollectionOperation(
+        'family_merge_jobs',
+        familyMergeJobs,
+        () => familyMergeJobs.where({
+          requestedByOpenid: payload.requestedByOpenid,
+          requestId: payload.requestId,
+        }).limit(1).get(),
+      );
+      let job = jobResult.data[0] || null;
+      if (!job) {
+        const createdAt = db.serverDate();
+        const created = await runCollectionOperation(
+          'family_merge_jobs',
+          familyMergeJobs,
+          () => familyMergeJobs.add({
+            data: {
+              ...payload,
+              status: 'running',
+              categoryMap: {},
+              cardMap: {},
+              createdAt,
+              updatedAt: createdAt,
+            },
+          }),
+        );
+        job = await readById(familyMergeJobs, created._id);
+      } else {
+        await familyMergeJobs.doc(job._id).update({
+          data: { status: 'running', updatedAt: db.serverDate(), errorCode: null },
+        });
+      }
+
+      const updateJob = async (updates) => {
+        await familyMergeJobs.doc(job._id).update({
+          data: { ...updates, updatedAt: db.serverDate() },
+        });
+        job = await readById(familyMergeJobs, job._id);
+      };
+
+      try {
+        await families.doc(payload.sourceFamilyId).update({
+          data: {
+            mergeLocked: true,
+            mergeRequestId: payload.requestId,
+            updatedAt: db.serverDate(),
+          },
+        });
+
+        const categoryMap = { ...(job.categoryMap || {}) };
+        const [sourceCategories, targetCategories] = await Promise.all([
+          listAll(categories, { familyId: payload.sourceFamilyId, status: 'active' }),
+          listAll(categories, { familyId: payload.targetFamilyId, status: 'active' }),
+        ]);
+        const targetCategoryByName = new Map(targetCategories.map((item) => [
+          item.normalizedName,
+          item,
+        ]));
+        for (const category of sourceCategories) {
+          const duplicate = targetCategoryByName.get(category.normalizedName);
+          if (duplicate) {
+            categoryMap[category._id] = duplicate._id;
+            await categories.doc(category._id).update({
+              data: {
+                status: 'merged',
+                mergedIntoCategoryId: duplicate._id,
+                updatedAt: db.serverDate(),
+              },
+            });
+          } else {
+            categoryMap[category._id] = category._id;
+            await categories.doc(category._id).update({
+              data: {
+                familyId: payload.targetFamilyId,
+                childId: payload.targetChildId,
+                updatedAt: db.serverDate(),
+              },
+            });
+            targetCategoryByName.set(category.normalizedName, category);
+          }
+        }
+        await updateJob({ categoryMap });
+
+        const cardMap = { ...(job.cardMap || {}) };
+        const [sourceCards, targetCards] = await Promise.all([
+          listAll(cards, { familyId: payload.sourceFamilyId, status: 'active' }),
+          listAll(cards, { familyId: payload.targetFamilyId, status: 'active' }),
+        ]);
+        const targetCardByContent = new Map(targetCards.map((item) => [
+          item.normalizedContent,
+          item,
+        ]));
+        for (const card of sourceCards) {
+          const mappedCategoryIds = [...new Set((card.categoryIds || []).map((id) => (
+            categoryMap[id] || id
+          )))];
+          const duplicate = targetCardByContent.get(card.normalizedContent);
+          if (duplicate) {
+            cardMap[card._id] = duplicate._id;
+            await cards.doc(duplicate._id).update({
+              data: {
+                customWords: [...new Set([
+                  ...(duplicate.customWords || []),
+                  ...(card.customWords || []),
+                ])].slice(0, 20),
+                categoryIds: [...new Set([
+                  ...(duplicate.categoryIds || []),
+                  ...mappedCategoryIds,
+                ])].slice(0, 10),
+                updatedAt: db.serverDate(),
+              },
+            });
+            await cards.doc(card._id).update({
+              data: {
+                status: 'merged',
+                mergedIntoCardId: duplicate._id,
+                updatedAt: db.serverDate(),
+              },
+            });
+          } else {
+            cardMap[card._id] = card._id;
+            await cards.doc(card._id).update({
+              data: {
+                familyId: payload.targetFamilyId,
+                childId: payload.targetChildId,
+                categoryIds: mappedCategoryIds,
+                updatedAt: db.serverDate(),
+              },
+            });
+            targetCardByContent.set(card.normalizedContent, card);
+          }
+        }
+        await updateJob({ cardMap });
+
+        let sourceSessions = [];
+        try {
+          sourceSessions = await listAll(reviewSessions, { familyId: payload.sourceFamilyId });
+        } catch (error) {
+          if (!isMissingCollectionError(error)) throw error;
+        }
+        for (const session of sourceSessions) {
+          const items = (session.items || []).map((item) => ({
+            ...item,
+            cardId: cardMap[item.cardId] || item.cardId,
+          }));
+          await reviewSessions.doc(session._id).update({
+            data: {
+              familyId: payload.targetFamilyId,
+              childId: payload.targetChildId,
+              items,
+              updatedAt: db.serverDate(),
+            },
+          });
+        }
+
+        const sourceMemberResult = await familyMembers.where({
+          familyId: payload.sourceFamilyId,
+          openid: payload.requestedByOpenid,
+          status: 'active',
+        }).limit(1).get();
+        const sourceMember = sourceMemberResult.data[0] || null;
+        const targetMemberResult = await familyMembers.where({
+          familyId: payload.targetFamilyId,
+          openid: payload.requestedByOpenid,
+          status: 'active',
+        }).limit(1).get();
+        if (!targetMemberResult.data[0]) {
+          const serverDate = db.serverDate();
+          await familyMembers.add({
+            data: {
+              familyId: payload.targetFamilyId,
+              openid: payload.requestedByOpenid,
+              role: 'member',
+              status: 'active',
+              reminderTime: (sourceMember && sourceMember.reminderTime) || '20:00',
+              reminderEnabled: !sourceMember || sourceMember.reminderEnabled !== false,
+              joinedAt: serverDate,
+              createdAt: serverDate,
+              updatedAt: serverDate,
+            },
+          });
+        }
+        if (sourceMember) {
+          await familyMembers.doc(sourceMember._id).update({
+            data: { status: 'inactive', leftAt: db.serverDate(), updatedAt: db.serverDate() },
+          });
+        }
+        const joiningUserResult = await users.where({
+          openid: payload.requestedByOpenid,
+          status: 'active',
+        }).limit(1).get();
+        const joiningUser = joiningUserResult.data[0] || null;
+        if (!joiningUser) throw new Error('JOINING_USER_NOT_FOUND');
+        await users.doc(joiningUser._id).update({
+          data: { activeFamilyId: payload.targetFamilyId, updatedAt: db.serverDate() },
+        });
+        await families.doc(payload.sourceFamilyId).update({
+          data: {
+            status: 'merged',
+            mergedIntoFamilyId: payload.targetFamilyId,
+            mergeLocked: false,
+            updatedAt: db.serverDate(),
+          },
+        });
+        await familyInvites.doc(payload.inviteId).update({
+          data: {
+            status: 'used',
+            usedCount: 1,
+            usedAt: db.serverDate(),
+            usedByOpenid: payload.requestedByOpenid,
+            updatedAt: db.serverDate(),
+          },
+        });
+        const result = {
+          requestId: payload.requestId,
+          familyId: payload.targetFamilyId,
+          childId: payload.targetChildId,
+          movedCardCount: Object.entries(cardMap).filter(([from, to]) => from === to).length,
+          mergedCardCount: Object.entries(cardMap).filter(([from, to]) => from !== to).length,
+        };
+        await updateJob({ status: 'completed', result, completedAt: db.serverDate() });
+        return result;
+      } catch (error) {
+        await updateJob({
+          status: 'failed',
+          errorCode: error.code || error.message || 'FAMILY_MERGE_FAILED',
+        });
+        throw error;
+      }
     },
 
     async listActiveChildrenByFamily(familyId) {

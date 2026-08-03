@@ -12,6 +12,7 @@ function createFamilyRepository(seed = {}) {
     cards: [...(seed.cards || [])],
     categories: [...(seed.categories || [])],
     invites: [...(seed.invites || [])],
+    mergeResults: new Map(),
   };
   return {
     state,
@@ -50,6 +51,96 @@ function createFamilyRepository(seed = {}) {
     },
     async listActiveCategoriesByFamily(familyId) {
       return state.categories.filter((item) => item.familyId === familyId && item.status === 'active');
+    },
+    async mergeFamilies({
+      requestId,
+      requestedByOpenid,
+      sourceFamilyId,
+      targetFamilyId,
+      sourceChildId,
+      targetChildId,
+      inviteId,
+    }) {
+      const key = `${requestedByOpenid}:${requestId}`;
+      if (state.mergeResults.has(key)) return state.mergeResults.get(key);
+      const targetCategories = state.categories.filter((item) => (
+        item.familyId === targetFamilyId && item.status === 'active'
+      ));
+      const categoryMap = new Map();
+      state.categories.filter((item) => (
+        item.familyId === sourceFamilyId && item.status === 'active'
+      )).forEach((category) => {
+        const duplicate = targetCategories.find((item) => (
+          item.normalizedName === category.normalizedName
+        ));
+        if (duplicate) {
+          category.status = 'merged';
+          category.mergedIntoCategoryId = duplicate._id;
+          categoryMap.set(category._id, duplicate._id);
+        } else {
+          category.familyId = targetFamilyId;
+          category.childId = targetChildId;
+          categoryMap.set(category._id, category._id);
+          targetCategories.push(category);
+        }
+      });
+      const targetCards = state.cards.filter((item) => (
+        item.familyId === targetFamilyId && item.status === 'active'
+      ));
+      const cardMap = new Map();
+      state.cards.filter((item) => (
+        item.familyId === sourceFamilyId && item.status === 'active'
+      )).forEach((card) => {
+        const duplicate = targetCards.find((item) => (
+          item.normalizedContent === card.normalizedContent
+        ));
+        if (duplicate) {
+          card.status = 'merged';
+          card.mergedIntoCardId = duplicate._id;
+          cardMap.set(card._id, duplicate._id);
+        } else {
+          card.familyId = targetFamilyId;
+          card.childId = targetChildId;
+          card.categoryIds = (card.categoryIds || []).map((id) => categoryMap.get(id) || id);
+          cardMap.set(card._id, card._id);
+          targetCards.push(card);
+        }
+      });
+      const sourceMember = state.members.find((item) => (
+        item.familyId === sourceFamilyId
+        && item.openid === requestedByOpenid
+        && item.status === 'active'
+      ));
+      sourceMember.status = 'inactive';
+      if (!state.members.some((item) => (
+        item.familyId === targetFamilyId
+        && item.openid === requestedByOpenid
+        && item.status === 'active'
+      ))) {
+        state.members.push({
+          familyId: targetFamilyId,
+          openid: requestedByOpenid,
+          role: 'member',
+          status: 'active',
+        });
+      }
+      state.users.find((item) => item.openid === requestedByOpenid).activeFamilyId = targetFamilyId;
+      state.families.find((item) => item._id === sourceFamilyId).status = 'merged';
+      const invite = state.invites.find((item) => item._id === inviteId);
+      invite.status = 'used';
+      invite.usedCount = 1;
+      const result = {
+        requestId,
+        familyId: targetFamilyId,
+        childId: targetChildId,
+        movedCardCount: [...cardMap.entries()].filter(([from, to]) => from === to).length,
+        mergedCardCount: [...cardMap.entries()].filter(([from, to]) => from !== to).length,
+      };
+      state.mergeResults.set(key, result);
+      return result;
+    },
+    async findMergeResult(openid, requestId) {
+      return state.mergeResults.get(`${openid}:${requestId}`) || null;
     },
   };
 }
@@ -146,4 +237,57 @@ test('已有其他成员的来源家庭不能直接合并加入', async () => {
     () => service.previewFamilyJoin('joiner-openid', { code: invite.code }),
     (error) => error.code === 'SOURCE_FAMILY_HAS_MEMBERS',
   );
+});
+
+test('确认加入保留目标重复字卡进度并原地迁移来源独有字卡', async () => {
+  const seed = createSeed();
+  seed.cards[0].proficiency = 'proficient';
+  seed.cards[0].reviewCount = 9;
+  seed.cards[1].proficiency = 'unfamiliar';
+  seed.cards[1].reviewCount = 1;
+  const repository = createFamilyRepository(seed);
+  const service = createSyncSettingsService(repository, {
+    now: () => new Date('2026-08-03T00:00:00.000Z'),
+    random: () => 0.25,
+    inviteSecret: 'test-family-secret',
+  });
+  const invite = await service.createFamilyInvite('owner-openid');
+
+  const result = await service.confirmFamilyJoin('joiner-openid', {
+    code: invite.code,
+    requestId: 'join-request-1',
+  });
+
+  const targetApple = repository.state.cards.find((card) => card._id === 'target-apple');
+  const sourceApple = repository.state.cards.find((card) => card._id === 'source-apple');
+  const sourceBanana = repository.state.cards.find((card) => card._id === 'source-banana');
+  assert.equal(targetApple.proficiency, 'proficient');
+  assert.equal(targetApple.reviewCount, 9);
+  assert.equal(sourceApple.status, 'merged');
+  assert.equal(sourceApple.mergedIntoCardId, 'target-apple');
+  assert.equal(sourceBanana.familyId, 'target-family');
+  assert.equal(sourceBanana._id, 'source-banana');
+  assert.equal(result.familyId, 'target-family');
+});
+
+test('相同 requestId 重试不会重复创建成员或迁移字卡', async () => {
+  const repository = createFamilyRepository(createSeed());
+  const service = createSyncSettingsService(repository, {
+    now: () => new Date('2026-08-03T00:00:00.000Z'),
+    random: () => 0.25,
+    inviteSecret: 'test-family-secret',
+  });
+  const invite = await service.createFamilyInvite('owner-openid');
+  const payload = { code: invite.code, requestId: 'join-request-retry' };
+
+  const first = await service.confirmFamilyJoin('joiner-openid', payload);
+  const second = await service.confirmFamilyJoin('joiner-openid', payload);
+
+  assert.deepEqual(second, first);
+  assert.equal(repository.state.members.filter((item) => (
+    item.familyId === 'target-family'
+    && item.openid === 'joiner-openid'
+    && item.status === 'active'
+  )).length, 1);
+  assert.equal(repository.state.cards.filter((item) => item.status === 'active').length, 2);
 });
