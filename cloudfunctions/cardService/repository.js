@@ -6,6 +6,50 @@ function createCardRepository(db) {
   const children = db.collection('children');
   const users = db.collection('users');
   const familyMembers = db.collection('family_members');
+  const reviewAssignments = db.collection('review_assignments');
+  let assignmentCollectionInitialization = null;
+
+  function isMissingCollectionError(error) {
+    const code = error && (error.errCode || error.errno || error.code);
+    const message = String((error && (error.errMsg || error.message)) || '');
+    return Number(code) === -502005
+      || code === 'DATABASE_COLLECTION_NOT_EXIST'
+      || /collection not exists|table not exist|DATABASE_COLLECTION_NOT_EXIST/i.test(message);
+  }
+
+  async function initializeAssignmentCollection(originalError) {
+    if (!isMissingCollectionError(originalError) || typeof db.createCollection !== 'function') {
+      throw originalError;
+    }
+    if (!assignmentCollectionInitialization) {
+      assignmentCollectionInitialization = (async () => {
+        try {
+          await db.createCollection('review_assignments');
+        } catch (creationError) {
+          try {
+            await reviewAssignments.limit(1).get();
+          } catch (readError) {
+            throw creationError;
+          }
+        }
+      })();
+    }
+    try {
+      await assignmentCollectionInitialization;
+    } catch (error) {
+      assignmentCollectionInitialization = null;
+      throw error;
+    }
+  }
+
+  async function runAssignmentOperation(operation) {
+    try {
+      return await operation();
+    } catch (error) {
+      await initializeAssignmentCollection(error);
+      return operation();
+    }
+  }
 
   async function readCard(id) {
     if (!id) return null;
@@ -81,6 +125,57 @@ function createCardRepository(db) {
         return result.data || null;
       }));
       return results.filter(Boolean);
+    },
+
+    async addReviewAssignments({ familyId, childId, cardIds, scheduledDate, addedByOpenid }) {
+      let addedCount = 0;
+      let existingCount = 0;
+      for (const cardId of cardIds) {
+        const existingResult = await runAssignmentOperation(() => reviewAssignments.where({
+          familyId,
+          childId,
+          cardId,
+          scheduledDate,
+          source: 'manual',
+          status: 'pending',
+        }).limit(1).get());
+        if (existingResult.data[0]) {
+          existingCount += 1;
+          continue;
+        }
+        const serverDate = db.serverDate();
+        await runAssignmentOperation(() => reviewAssignments.add({
+          data: {
+            familyId,
+            childId,
+            cardId,
+            scheduledDate,
+            source: 'manual',
+            status: 'pending',
+            addedByOpenid,
+            createdAt: serverDate,
+            updatedAt: serverDate,
+          },
+        }));
+        addedCount += 1;
+      }
+      return { addedCount, existingCount };
+    },
+
+    async listPendingReviewAssignments(familyId, childId, scheduledDate) {
+      const all = [];
+      let offset = 0;
+      while (true) {
+        const result = await runAssignmentOperation(() => reviewAssignments
+          .where({ familyId, childId, status: 'pending' })
+          .skip(offset)
+          .limit(BATCH_SIZE)
+          .get());
+        all.push(...result.data.filter((item) => item.scheduledDate <= scheduledDate));
+        if (result.data.length < BATCH_SIZE) break;
+        offset += BATCH_SIZE;
+      }
+      return all;
     },
 
     async updateCard(id, updates) {

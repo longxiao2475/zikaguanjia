@@ -24,9 +24,11 @@ function createMemoryRepository(seed = {}) {
     familyId: getChildFamily(category.childId),
     ...category,
   }));
+  const assignments = [...(seed.assignments || [])];
 
   return {
     cards,
+    assignments,
     async findFamilyAccess(openid, childId) {
       const child = children.find((item) => item._id === childId) || null;
       const member = child && members.find((item) => (
@@ -66,6 +68,41 @@ function createMemoryRepository(seed = {}) {
     },
     async findCategoriesByIds(ids) {
       return ids.map((id) => categories.find((item) => item._id === id) || null).filter(Boolean);
+    },
+    async addReviewAssignments(data) {
+      let addedCount = 0;
+      let existingCount = 0;
+      for (const cardId of data.cardIds) {
+        const existing = assignments.find((item) => (
+          item.familyId === data.familyId
+          && item.childId === data.childId
+          && item.cardId === cardId
+          && item.scheduledDate === data.scheduledDate
+          && item.status === 'pending'
+        ));
+        if (existing) {
+          existingCount += 1;
+          continue;
+        }
+        assignments.push({
+          _id: `assignment-${assignments.length + 1}`,
+          ...data,
+          cardIds: undefined,
+          cardId,
+          source: 'manual',
+          status: 'pending',
+        });
+        addedCount += 1;
+      }
+      return { addedCount, existingCount };
+    },
+    async listPendingReviewAssignments(familyId, childId, scheduledDate) {
+      return assignments.filter((item) => (
+        item.familyId === familyId
+        && item.childId === childId
+        && item.status === 'pending'
+        && item.scheduledDate <= scheduledDate
+      ));
     },
   };
 }
@@ -209,6 +246,59 @@ test('今日计划按调度规则返回统计和总览', async () => {
   assert.deepEqual(result.cards.map((card) => card._id), ['u1', 'n1']);
   assert.deepEqual(result.stats, { total: 2, unfamiliar: 1, normal: 1, proficient: 0 });
   assert.deepEqual(result.overview, { total: 3, mastered: 1, due: 2 });
+});
+
+test('选择字卡会加入家庭孩子维度的今日任务且重复添加保持幂等', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'recent', childId: 'child-1', status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-25T03:00:00.000Z' },
+      { _id: 'other-family', familyId: 'family-2', childId: 'child-2', status: 'active', proficiency: 'normal' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const first = await service.addReviewAssignments('openid-1', {
+    childId: 'child-1', cardIds: ['recent'],
+  });
+  const second = await service.addReviewAssignments('openid-1', {
+    childId: 'child-1', cardIds: ['recent'],
+  });
+
+  assert.deepEqual(first, { addedCount: 1, existingCount: 0, scheduledDate: '2026-07-25' });
+  assert.deepEqual(second, { addedCount: 0, existingCount: 1, scheduledDate: '2026-07-25' });
+  assert.equal(repository.assignments[0].familyId, 'family-1');
+  assert.equal(repository.assignments[0].addedByOpenid, 'openid-1');
+  await assert.rejects(
+    () => service.addReviewAssignments('openid-1', {
+      childId: 'child-1', cardIds: ['other-family'],
+    }),
+    (error) => error.code === 'CARD_NOT_FOUND',
+  );
+});
+
+test('今日计划合并自动到期和手动任务并按字卡 id 去重', async () => {
+  const repository = createMemoryRepository({
+    cards: [
+      { _id: 'automatic', childId: 'child-1', status: 'active', proficiency: 'unfamiliar', lastReviewAt: null },
+      { _id: 'manual-only', childId: 'child-1', status: 'active', proficiency: 'proficient', lastReviewAt: '2026-07-25T03:00:00.000Z' },
+    ],
+    assignments: [
+      { _id: 'a1', familyId: 'family-1', childId: 'child-1', cardId: 'automatic', scheduledDate: '2026-07-25', status: 'pending' },
+      { _id: 'a2', familyId: 'family-1', childId: 'child-1', cardId: 'manual-only', scheduledDate: '2026-07-25', status: 'pending' },
+    ],
+  });
+  const service = createCardService(repository, {
+    now: () => new Date('2026-07-25T04:00:00.000Z'),
+  });
+
+  const result = await service.getTodayPlan('openid-1', { childId: 'child-1' });
+
+  assert.deepEqual(result.cards.map((card) => card._id), ['automatic', 'manual-only']);
+  assert.equal(result.cards[0].reviewSource, 'automatic');
+  assert.equal(result.cards[1].reviewSource, 'manual');
+  assert.equal(result.overview.due, 2);
 });
 
 test('已学过但从未复习的字卡进入今日计划', async () => {

@@ -17,6 +17,38 @@ function createSummary(items) {
 
 function createReviewRepository(db) {
   const command = db.command;
+  const reviewAssignments = db.collection('review_assignments');
+  let assignmentCollectionInitialization = null;
+
+  function isMissingCollectionError(error) {
+    const code = error && (error.errCode || error.errno || error.code);
+    const message = String((error && (error.errMsg || error.message)) || '');
+    return Number(code) === -502005
+      || code === 'DATABASE_COLLECTION_NOT_EXIST'
+      || /collection not exists|table not exist|DATABASE_COLLECTION_NOT_EXIST/i.test(message);
+  }
+
+  async function ensureAssignmentCollection() {
+    try {
+      await reviewAssignments.limit(1).get();
+      return;
+    } catch (error) {
+      if (!isMissingCollectionError(error) || typeof db.createCollection !== 'function') throw error;
+      if (!assignmentCollectionInitialization) {
+        assignmentCollectionInitialization = db.createCollection('review_assignments');
+      }
+      try {
+        await assignmentCollectionInitialization;
+      } catch (creationError) {
+        try {
+          await reviewAssignments.limit(1).get();
+        } catch (readError) {
+          assignmentCollectionInitialization = null;
+          throw creationError;
+        }
+      }
+    }
+  }
 
   async function readDocument(collectionName, id) {
     const result = await db.collection(collectionName).doc(id).get();
@@ -25,6 +57,7 @@ function createReviewRepository(db) {
 
   return {
     async completeReview({ openid, childId, items, bizDate }) {
+      await ensureAssignmentCollection();
       const transactionResult = await db.runTransaction(async (transaction) => {
         const access = await assertTransactionFamilyAccess(transaction, openid, childId);
 
@@ -74,6 +107,26 @@ function createReviewRepository(db) {
               updatedAt: reviewedAt,
             },
           });
+
+          const assignmentResult = await transaction.collection('review_assignments').where({
+            familyId: access.familyId,
+            childId,
+            cardId: card._id,
+            status: 'pending',
+          }).get();
+          for (const assignment of assignmentResult.data.filter((item) => (
+            item.scheduledDate <= bizDate
+          ))) {
+            await transaction.collection('review_assignments').doc(assignment._id).update({
+              data: {
+                status: 'completed',
+                completedAt: reviewedAt,
+                completedByOpenid: openid,
+                completedSessionId: sessionResult._id,
+                updatedAt: reviewedAt,
+              },
+            });
+          }
         }
 
         return {

@@ -214,6 +214,7 @@ function createSyncSettingsService(repository, options = {}) {
     await repository.backfillCategoriesFamily(childIds, family._id);
     await repository.backfillReviewSessionsFamily(childIds, family._id);
     await repository.backfillReminderLogsFamily(childIds, family._id);
+    await repository.backfillReviewAssignmentsFamily(childIds, family._id);
 
     let member = await repository.findActiveMember(family._id, openid);
     if (!member) {

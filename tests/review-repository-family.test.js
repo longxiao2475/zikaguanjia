@@ -19,6 +19,7 @@ function createDatabase() {
       content: '大', proficiency: 'unfamiliar', reviewCount: 0, status: 'active',
     }],
     review_sessions: [],
+    review_assignments: [],
   };
 
   function collection(name) {

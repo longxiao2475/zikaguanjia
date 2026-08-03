@@ -8,6 +8,7 @@ const { assertChildAccess } = require('./family');
 
 const VALID_PROFICIENCIES = new Set(['unfamiliar', 'normal', 'proficient']);
 const VALID_SOURCES = new Set(['new', 'reviewed']);
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function businessError(code, message) {
   const error = new Error(message || code);
@@ -30,6 +31,11 @@ function normalizeCategoryIds(value, limit = 10) {
   return [...new Set(value
     .filter((id) => typeof id === 'string' && id.trim())
     .map((id) => id.trim()))].slice(0, limit);
+}
+
+function getBusinessDate(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  return new Date(date.getTime() + SHANGHAI_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function createCardService(repository, options = {}) {
@@ -162,10 +168,55 @@ function createCardService(repository, options = {}) {
     ));
   }
 
+  async function addReviewAssignments(openid, payload = {}) {
+    const access = await assertChildAccess(repository, openid, payload.childId);
+    const rawIds = Array.isArray(payload.cardIds) ? payload.cardIds : [];
+    if (!rawIds.length) throw businessError('CARD_IDS_REQUIRED', '请先选择要复习的字卡');
+    if (rawIds.length > 50) throw businessError('CARD_IDS_TOO_MANY', '一次最多选择 50 张字卡');
+    const cardIds = [...new Set(rawIds
+      .filter((id) => typeof id === 'string' && id.trim())
+      .map((id) => id.trim()))];
+    if (!cardIds.length) throw businessError('CARD_IDS_REQUIRED', '请先选择要复习的字卡');
+
+    const cards = await Promise.all(cardIds.map((id) => repository.findCardById(id)));
+    const hasInvalidCard = cards.some((card) => (
+      !card
+      || card.familyId !== access.familyId
+      || card.childId !== payload.childId
+      || card.status !== 'active'
+    ));
+    if (hasInvalidCard) throw businessError('CARD_NOT_FOUND', '部分字卡不存在或已失效');
+
+    const scheduledDate = getBusinessDate(now());
+    const result = await repository.addReviewAssignments({
+      familyId: access.familyId,
+      childId: payload.childId,
+      cardIds,
+      scheduledDate,
+      addedByOpenid: openid,
+    });
+    return { ...result, scheduledDate };
+  }
+
   async function getTodayPlan(openid, payload = {}) {
     const access = await assertChildAccess(repository, openid, payload.childId);
     const allCards = sortCards(await repository.listActiveCards(access.familyId, payload.childId));
-    const cards = getTodayReviewCards(allCards, now());
+    const currentTime = now();
+    const automaticCards = getTodayReviewCards(allCards, currentTime);
+    const automaticIds = new Set(automaticCards.map((card) => card._id));
+    const assignments = await repository.listPendingReviewAssignments(
+      access.familyId,
+      payload.childId,
+      getBusinessDate(currentTime),
+    );
+    const manualIds = new Set(assignments.map((assignment) => assignment.cardId));
+    const manualOnlyCards = sortCards(allCards.filter((card) => (
+      manualIds.has(card._id) && !automaticIds.has(card._id)
+    )));
+    const cards = [
+      ...automaticCards.map((card) => ({ ...card, reviewSource: 'automatic' })),
+      ...manualOnlyCards.map((card) => ({ ...card, reviewSource: 'manual' })),
+    ];
     return {
       cards,
       stats: getReviewStats(cards),
@@ -233,6 +284,7 @@ function createCardService(repository, options = {}) {
   }
 
   return {
+    addReviewAssignments,
     create,
     getByIds,
     getTodayPlan,
@@ -245,6 +297,7 @@ function createCardService(repository, options = {}) {
 module.exports = {
   businessError,
   createCardService,
+  getBusinessDate,
   normalizeCategoryIds,
   normalizeContent,
 };

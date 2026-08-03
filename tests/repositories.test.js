@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const { createSyncSettingsRepository } = require('../cloudfunctions/syncSettings/repository');
 const { createCardRepository } = require('../cloudfunctions/cardService/repository');
 const { createCategoryRepository } = require('../cloudfunctions/categoryService/repository');
+const { createReviewRepository } = require('../cloudfunctions/reviewService/repository');
 
 function createFakeDb(seed = {}) {
   const tables = {
@@ -17,6 +18,7 @@ function createFakeDb(seed = {}) {
     family_merge_jobs: [...(seed.family_merge_jobs || [])],
     review_sessions: [...(seed.review_sessions || [])],
     reminder_logs: [...(seed.reminder_logs || [])],
+    review_assignments: [...(seed.review_assignments || [])],
   };
 
   function matches(item, query) {
@@ -68,6 +70,10 @@ function createFakeDb(seed = {}) {
     tables,
     collection,
     serverDate: () => 'SERVER_DATE',
+    command: { inc: (value) => ({ __inc: value }) },
+    async runTransaction(handler) {
+      return handler(this);
+    },
   };
 }
 
@@ -204,6 +210,20 @@ test('syncSettings 仓储幂等合并家庭并保留目标进度和来源独有�
       _id: 'source-session', familyId: 'source-family', childId: 'source-child', status: 'completed',
       items: [{ cardId: 'source-apple' }, { cardId: 'source-banana' }],
     }],
+    review_assignments: [
+      {
+        _id: 'source-assignment-apple', familyId: 'source-family', childId: 'source-child',
+        cardId: 'source-apple', scheduledDate: '2026-08-03', status: 'pending',
+      },
+      {
+        _id: 'source-assignment-banana', familyId: 'source-family', childId: 'source-child',
+        cardId: 'source-banana', scheduledDate: '2026-08-03', status: 'pending',
+      },
+      {
+        _id: 'target-assignment-apple', familyId: 'target-family', childId: 'target-child',
+        cardId: 'target-apple', scheduledDate: '2026-08-03', status: 'pending',
+      },
+    ],
     family_invites: [{
       _id: 'invite-1', familyId: 'target-family', status: 'active', maxUses: 1, usedCount: 0,
     }],
@@ -235,6 +255,15 @@ test('syncSettings 仓储幂等合并家庭并保留目标进度和来源独有�
   assert.deepEqual(db.tables.review_sessions[0].items.map((item) => item.cardId), [
     'target-apple', 'source-banana',
   ]);
+  assert.equal(db.tables.review_assignments.find((item) => (
+    item._id === 'source-assignment-apple'
+  )).status, 'merged');
+  assert.equal(db.tables.review_assignments.find((item) => (
+    item._id === 'source-assignment-banana'
+  )).familyId, 'target-family');
+  assert.equal(db.tables.review_assignments.find((item) => (
+    item._id === 'source-assignment-banana'
+  )).cardId, 'source-banana');
   assert.equal(db.tables.users[0].activeFamilyId, 'target-family');
   assert.equal(db.tables.family_members.filter((item) => item.status === 'active').length, 1);
   assert.equal(db.tables.family_invites[0].status, 'used');
@@ -272,6 +301,33 @@ test('cardService 仓储只列出活动字卡并写入更新时间', async () =>
   assert.equal(created.createdAt, 'SERVER_DATE');
   assert.equal(updated.updatedAt, 'SERVER_DATE');
   assert.equal(updated.proficiency, 'normal');
+});
+
+test('reviewService 仓储在复习事务中完成到期的手动任务', async () => {
+  const db = createFakeDb({
+    users: [{ _id: 'user-1', openid: 'openid-1', activeFamilyId: 'family-1', status: 'active' }],
+    children: [{ _id: 'child-1', familyId: 'family-1', status: 'active' }],
+    family_members: [{ _id: 'member-1', familyId: 'family-1', openid: 'openid-1', status: 'active' }],
+    cards: [{
+      _id: 'card-1', familyId: 'family-1', childId: 'child-1', content: '大',
+      proficiency: 'unfamiliar', reviewCount: 0, status: 'active',
+    }],
+    review_assignments: [{
+      _id: 'assignment-1', familyId: 'family-1', childId: 'child-1', cardId: 'card-1',
+      scheduledDate: '2026-07-26', source: 'manual', status: 'pending',
+    }],
+  });
+  const repository = createReviewRepository(db);
+
+  const result = await repository.completeReview({
+    openid: 'openid-1', childId: 'child-1', bizDate: '2026-07-26',
+    items: [{ cardId: 'card-1', proficiency: 'normal' }],
+  });
+
+  assert.equal(result.session.familyId, 'family-1');
+  assert.equal(db.tables.review_assignments[0].status, 'completed');
+  assert.equal(db.tables.review_assignments[0].completedByOpenid, 'openid-1');
+  assert.equal(db.tables.review_assignments[0].completedSessionId, result.session._id);
 });
 
 test('categoryService 仓储按孩子排序分类并写入更新时间', async () => {

@@ -12,6 +12,7 @@ function createMemoryRepository(seed = {}) {
   const categories = [...(seed.categories || [])];
   const reviewSessions = [...(seed.reviewSessions || [])];
   const reminderLogs = [...(seed.reminderLogs || [])];
+  const reviewAssignments = [...(seed.reviewAssignments || [])];
 
   return {
     users,
@@ -22,6 +23,7 @@ function createMemoryRepository(seed = {}) {
     categories,
     reviewSessions,
     reminderLogs,
+    reviewAssignments,
     async findUserByOpenid(openid) {
       return users.find((item) => item.openid === openid) || null;
     },
@@ -102,6 +104,11 @@ function createMemoryRepository(seed = {}) {
     },
     async backfillReminderLogsFamily(childIds, familyId) {
       reminderLogs
+        .filter((item) => childIds.includes(item.childId))
+        .forEach((item) => { item.familyId = familyId; });
+    },
+    async backfillReviewAssignmentsFamily(childIds, familyId) {
+      reviewAssignments
         .filter((item) => childIds.includes(item.childId))
         .forEach((item) => { item.familyId = familyId; });
     },

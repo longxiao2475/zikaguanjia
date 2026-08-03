@@ -34,11 +34,13 @@ function createMemoryRepository(seed = {}) {
     ...card,
   }));
   const sessions = [];
+  const assignments = [...(seed.assignments || [])];
 
   return {
     cards,
     children,
     sessions,
+    assignments,
     failAfterUpdates: false,
 
     async completeReview({ openid, childId, items, bizDate }) {
@@ -95,6 +97,19 @@ function createMemoryRepository(seed = {}) {
         items: sessionItems,
       };
       cards.splice(0, cards.length, ...nextCards);
+      for (const assignment of assignments) {
+        if (
+          assignment.familyId === child.familyId
+          && assignment.childId === childId
+          && items.some((item) => item.cardId === assignment.cardId)
+          && assignment.status === 'pending'
+          && assignment.scheduledDate <= bizDate
+        ) {
+          assignment.status = 'completed';
+          assignment.completedAt = 'SERVER_DATE';
+          assignment.completedByOpenid = openid;
+        }
+      }
       sessions.push(session);
       return {
         session,
@@ -136,6 +151,26 @@ test('complete 创建一次 session 并更新全部字卡', async () => {
   });
   assert.equal(result.cards[0].reviewCount, 1);
   assert.equal(result.cards[1].reviewCount, 3);
+});
+
+test('完成复习会同步完成对应的手动待复习任务', async () => {
+  const repository = createMemoryRepository({
+    assignments: [{
+      _id: 'assignment-1', familyId: 'family-1', childId: 'child-1', cardId: 'card-1',
+      scheduledDate: '2026-07-26', source: 'manual', status: 'pending',
+    }],
+  });
+  const service = createReviewService(repository, {
+    now: () => new Date('2026-07-26T04:00:00.000Z'),
+  });
+
+  await service.complete('openid-1', {
+    childId: 'child-1',
+    items: [{ cardId: 'card-1', proficiency: 'normal' }],
+  });
+
+  assert.equal(repository.assignments[0].status, 'completed');
+  assert.equal(repository.assignments[0].completedByOpenid, 'openid-1');
 });
 
 test('同一家庭成员可以提交共享字卡复习且记录实际操作人', async () => {

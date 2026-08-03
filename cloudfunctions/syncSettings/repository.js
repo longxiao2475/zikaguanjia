@@ -9,6 +9,7 @@ function createSyncSettingsRepository(db) {
   const categories = db.collection('categories');
   const reviewSessions = db.collection('review_sessions');
   const reminderLogs = db.collection('reminder_logs');
+  const reviewAssignments = db.collection('review_assignments');
   const collectionInitializations = new Map();
 
   function isMissingCollectionError(error) {
@@ -385,6 +386,41 @@ function createSyncSettingsRepository(db) {
           });
         }
 
+        let sourceAssignments = [];
+        try {
+          sourceAssignments = await listAll(reviewAssignments, { familyId: payload.sourceFamilyId });
+        } catch (error) {
+          if (!isMissingCollectionError(error)) throw error;
+        }
+        for (const assignment of sourceAssignments) {
+          const mappedCardId = cardMap[assignment.cardId] || assignment.cardId;
+          let duplicate = null;
+          if (assignment.status === 'pending') {
+            const duplicateResult = await reviewAssignments.where({
+              familyId: payload.targetFamilyId,
+              childId: payload.targetChildId,
+              cardId: mappedCardId,
+              scheduledDate: assignment.scheduledDate,
+              status: 'pending',
+            }).limit(1).get();
+            duplicate = duplicateResult.data[0] || null;
+          }
+          await reviewAssignments.doc(assignment._id).update({
+            data: duplicate
+              ? {
+                status: 'merged',
+                mergedIntoAssignmentId: duplicate._id,
+                updatedAt: db.serverDate(),
+              }
+              : {
+                familyId: payload.targetFamilyId,
+                childId: payload.targetChildId,
+                cardId: mappedCardId,
+                updatedAt: db.serverDate(),
+              },
+          });
+        }
+
         const sourceMemberResult = await familyMembers.where({
           familyId: payload.sourceFamilyId,
           openid: payload.requestedByOpenid,
@@ -535,6 +571,10 @@ function createSyncSettingsRepository(db) {
 
     async backfillReminderLogsFamily(childIds, familyId) {
       return backfillByChildIds(reminderLogs, childIds, familyId);
+    },
+
+    async backfillReviewAssignmentsFamily(childIds, familyId) {
+      return backfillByChildIds(reviewAssignments, childIds, familyId);
     },
 
     async countActiveCards(childIds, familyId) {
